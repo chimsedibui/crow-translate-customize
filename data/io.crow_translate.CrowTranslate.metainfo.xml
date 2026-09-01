@@ -1,0 +1,232 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.crow_translate.CrowTranslate</id>
+
+  <name>Crow Translate</name>
+  <summary>A simple and lightweight translator</summary>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <description>
+    <p>
+      Crow Translate is a simple and lightweight translator written in C++ / Qt
+      that allows you to translate and speak text using Google, Yandex, Bing,
+      LibreTranslate and Lingva translate API.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>Translate and speak text from screen or selection</li>
+      <li>Support 125 different languages</li>
+      <li>Low memory consumption (~20MB)</li>
+      <li>Highly customizable shortcuts</li>
+      <li>Command-line interface with rich options</li>
+      <li>D-Bus API</li>
+      <li>Available for Linux and Windows</li>
+    </ul>
+  </description>
+
+  <url type="homepage">https://crow-translate.github.io</url>
+  <url type="bugtracker">https://github.com/crow-translate/crow-translate/issues</url>
+  <url type="translate">https://crowdin.com/project/crow-translate</url>
+
+  <launchable type="desktop-id">io.crow_translate.CrowTranslate.desktop</launchable>
+
+  <translation type="qt">Crow Translate/Crow Translate/translations/crow-translate</translation>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/crow-translate/crow-translate.github.io/master/static/screenshots/plasma/main.png</image>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="2.11.1" date="2024-01-04">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Enable new LibreTranslate langs.</li>
+          <li>Require Qt5X11Extras on Linux.</li>
+          <li>Add and remove old, non-existed, broken Libre and Lingva instances.</li>
+          <li>Improve accessibility for screen readers.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.11.0" date="2023-10-14">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Remove spaces in settings paths. Everywhere instead of "Crow Translate" now "crow-translate".</li>
+          <li>Use lingva.garudalinux.org by default for Lingva engine.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.10" date="2023-08-02">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix selection translation on Windows.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.9" date="2023-08-02">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix selection translation regression.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.8" date="2023-08-01">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix selection translation on Wayland.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.7" date="2023-07-13">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix settings in portable mode.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.6" date="2023-06-29">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix screen capture DPI.</li>
+          <li>Do not apply smoothing to the magnifier's image.</li>
+          <li>Read settings from application directory when building in portable mode.</li>
+          <li>Add missing Basque localization.</li>
+          <li>Use correct flags for Cantonese, Chinese (Traditional), and Uighur.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.5" date="2023-05-18">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix Yandex translation due to API changes.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.4" date="2023-04-16">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Added OCR actions to desktop file.</li>
+          <li>Autoselect source text when showing main window.</li>
+          <li>Fixed an issue where the TTS engine would sometimes pronounce the space as "percent twenty".</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.3" date="2023-01-25">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Add examples support for Lingva.</li>
+          <li>Parse all examples for Google.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.2" date="2023-01-18">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Add transliterations and type of speeches for Lingva.</li>
+          <li>Fix Bing translation.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.1" date="2022-10-24">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Remove Network category from desktop file.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.10.0" date="2022-09-05">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Add an option to select regional voice for Google.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.12" date="2022-08-12">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Use the correct approach to remove invalid symbols from translations.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.11" date="2022-08-11">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix regression in translation formatting.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.10" date="2022-08-07">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix popup window not displaying text if text contains UTF-8 special characters.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.9" date="2022-08-06">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Add missing Basque and Finnish localizations.</li>
+          <li>Respect URL settings in CLI.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.8" date="2022-05-16">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Bundle application icons only for Windows.</li>
+          <li>Make XDG dialogs modal on Wayland.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.7" date="2022-05-14">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Autostart support via xdg-desktop-portal.</li>
+          <li>Close settings window after all settings applied.</li>
+          <li>Retrieve parent window ID for XDG desktop portal dialogs.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.6" date="2022-05-12">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Fix icons fallback on GNOME.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.5" date="2022-05-11">
+      <description>
+        <p>Changelog:</p>
+        <ul>
+          <li>Remove "The application is already running" dialog.</li>
+        </ul>
+      </description>
+    </release>
+    <release version="2.9.4" date="2022-05-11"/>
+  </releases>
+</component>

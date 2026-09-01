@@ -1,0 +1,185 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>PopupWindow</class>
+ <widget class="QWidget" name="PopupWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>405</width>
+    <height>296</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string notr="true">Crow Translate</string>
+  </property>
+  <property name="windowIcon">
+   <iconset>
+    <normaloff>:/icons/app/black.png</normaloff>:/icons/app/black.png</iconset>
+  </property>
+  <layout class="QVBoxLayout" name="verticalLayout_2">
+   <item>
+    <layout class="QHBoxLayout" name="topLayout">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     <item>
+      <widget class="LanguageButtonsWidget" name="sourceLanguagesWidget" native="true"/>
+     </item>
+     <item>
+      <widget class="QToolButton" name="swapButton">
+       <property name="toolTip">
+        <string>Swap languages</string>
+       </property>
+       <property name="icon">
+        <iconset theme="object-flip-horizontal">
+         <normaloff>.</normaloff>.</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="LanguageButtonsWidget" name="translationLanguagesWidget" native="true">
+       <property name="layoutDirection">
+        <enum>Qt::RightToLeft</enum>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
+    <widget class="QTextEdit" name="translationEdit">
+     <property name="readOnly">
+      <bool>true</bool>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="buttomLayout">
+     <item>
+      <widget class="SpeakButtons" name="sourceSpeakButtons" native="true"/>
+     </item>
+     <item>
+      <widget class="QToolButton" name="copySourceButton">
+       <property name="toolTip">
+        <string>Copy source text to the clipboard</string>
+       </property>
+       <property name="icon">
+        <iconset theme="edit-copy">
+         <normaloff>.</normaloff>.</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <spacer name="buttomSpacer">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>0</width>
+         <height>0</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     <item>
+      <widget class="QComboBox" name="engineComboBox">
+       <item>
+        <property name="text">
+         <string notr="true">Google</string>
+        </property>
+        <property name="icon">
+         <iconset resource="../data/icons/engines/engines.qrc">
+          <normaloff>:/icons/engines/google.svg</normaloff>:/icons/engines/google.svg</iconset>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string notr="true">Yandex</string>
+        </property>
+        <property name="icon">
+         <iconset resource="../data/icons/engines/engines.qrc">
+          <normaloff>:/icons/engines/yandex.svg</normaloff>:/icons/engines/yandex.svg</iconset>
+        </property>
+       </item>
+       <item>
+        <property name="text">
+         <string notr="true">Bing</string>
+        </property>
+        <property name="icon">
+         <iconset resource="../data/icons/engines/engines.qrc">
+          <normaloff>:/icons/engines/bing.svg</normaloff>:/icons/engines/bing.svg</iconset>
+        </property>
+       </item>
+	   <item>
+        <property name="text">
+         <string notr="true">LibreTranslate</string>
+        </property>
+        <property name="icon">
+         <iconset resource="../data/icons/engines/engines.qrc">
+          <normaloff>:/icons/engines/libretranslate.svg</normaloff>:/icons/engines/libretranslate.svg</iconset>
+        </property>
+       </item>
+	   <item>
+        <property name="text">
+         <string notr="true">Lingva</string>
+        </property>
+        <property name="icon">
+         <iconset resource="../data/icons/engines/engines.qrc">
+          <normaloff>:/icons/engines/lingva.svg</normaloff>:/icons/engines/lingva.svg</iconset>
+        </property>
+       </item>
+      </widget>
+     </item>
+     <item>
+      <widget class="SpeakButtons" name="translationSpeakButtons" native="true"/>
+     </item>
+     <item>
+      <widget class="QToolButton" name="copyAllTranslationButton">
+       <property name="toolTip">
+        <string>Copy all translation data to the clipboard</string>
+       </property>
+       <property name="icon">
+        <iconset theme="edit-select-all">
+         <normaloff>.</normaloff>.</iconset>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QToolButton" name="copyTranslationButton">
+       <property name="toolTip">
+        <string>Copy translation to the clipboard</string>
+       </property>
+       <property name="icon">
+        <iconset theme="edit-copy">
+         <normaloff>.</normaloff>.</iconset>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+  </layout>
+ </widget>
+ <customwidgets>
+  <customwidget>
+   <class>SpeakButtons</class>
+   <extends>QWidget</extends>
+   <header>speakbuttons.h</header>
+   <container>1</container>
+   <slots>
+    <signal>playerMediaRequested()</signal>
+    <slot>stopSpeaking()</slot>
+   </slots>
+  </customwidget>
+  <customwidget>
+   <class>LanguageButtonsWidget</class>
+   <extends>QWidget</extends>
+   <header>languagebuttonswidget.h</header>
+   <container>1</container>
+  </customwidget>
+ </customwidgets>
+ <resources>
+  <include location="../data/icons/engines/engines.qrc"/>
+ </resources>
+ <connections/>
+</ui>

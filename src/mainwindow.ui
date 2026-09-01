@@ -1,0 +1,642 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>MainWindow</class>
+ <widget class="QMainWindow" name="MainWindow">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>650</width>
+    <height>206</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string notr="true">Crow Translate</string>
+  </property>
+  <property name="windowIcon">
+   <iconset theme="crow-translate">
+    <normaloff>.</normaloff>.</iconset>
+  </property>
+  <widget class="QWidget" name="centralWidget">
+   <layout class="QHBoxLayout" name="centralLayout">
+    <item>
+     <layout class="QGridLayout" name="sourceLayout">
+      <item row="5" column="0">
+       <layout class="QHBoxLayout" name="sourceButtonsLayout">
+        <item>
+         <widget class="SpeakButtons" name="sourceSpeakButtons" native="true">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="copySourceButton">
+          <property name="toolTip">
+           <string>Copy source text to the clipboard</string>
+          </property>
+          <property name="icon">
+           <iconset theme="edit-copy">
+            <normaloff>.</normaloff>.</iconset>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="delayedRecognizeScreenAreaButton">
+          <property name="toolTip">
+           <string>Recognize screen area with delay</string>
+          </property>
+          <property name="icon">
+           <iconset theme="transform-crop">
+            <normaloff>.</normaloff>.</iconset>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QCheckBox" name="autoTranslateCheckBox">
+          <property name="sizePolicy">
+           <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+            <horstretch>0</horstretch>
+            <verstretch>0</verstretch>
+           </sizepolicy>
+          </property>
+          <property name="minimumSize">
+           <size>
+            <width>1</width>
+            <height>1</height>
+           </size>
+          </property>
+          <property name="text">
+           <string extracomment="The text should be short to fit in portrait orientation on phones.">Auto-translation</string>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+      <item row="4" column="1">
+       <widget class="QToolButton" name="abortButton">
+        <property name="enabled">
+         <bool>false</bool>
+        </property>
+        <property name="toolTip">
+         <string>Cancel</string>
+        </property>
+        <property name="icon">
+         <iconset theme="dialog-cancel">
+          <normaloff>.</normaloff>.</iconset>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="1">
+       <widget class="QToolButton" name="swapButton">
+        <property name="toolTip">
+         <string>Swap languages</string>
+        </property>
+        <property name="icon">
+         <iconset theme="object-flip-horizontal">
+          <normaloff>.</normaloff>.</iconset>
+        </property>
+       </widget>
+      </item>
+      <item row="0" column="0">
+       <widget class="LanguageButtonsWidget" name="sourceLanguagesWidget" native="true">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+       </widget>
+      </item>
+      <item row="1" column="0" rowspan="4">
+       <widget class="SourceTextEdit" name="sourceEdit">
+        <property name="tabChangesFocus">
+         <bool>true</bool>
+        </property>
+        <property name="placeholderText">
+         <string>Source</string>
+        </property>
+       </widget>
+      </item>
+      <item row="2" column="1">
+       <widget class="QToolButton" name="clearButton">
+        <property name="toolTip">
+         <string>Clear</string>
+        </property>
+        <property name="icon">
+         <iconset theme="edit-clear-all">
+          <normaloff>.</normaloff>.</iconset>
+        </property>
+       </widget>
+      </item>
+      <item row="3" column="1">
+       <widget class="QToolButton" name="translateButton">
+        <property name="sizePolicy">
+         <sizepolicy hsizetype="Fixed" vsizetype="Expanding">
+          <horstretch>0</horstretch>
+          <verstretch>0</verstretch>
+         </sizepolicy>
+        </property>
+        <property name="toolTip">
+         <string>Translate</string>
+        </property>
+        <property name="icon">
+         <iconset theme="go-next">
+          <normaloff>.</normaloff>.</iconset>
+        </property>
+       </widget>
+      </item>
+     </layout>
+    </item>
+    <item>
+     <layout class="QVBoxLayout" name="translationLayout">
+      <item>
+       <widget class="LanguageButtonsWidget" name="translationLanguagesWidget" native="true">
+        <property name="layoutDirection">
+         <enum>Qt::RightToLeft</enum>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <widget class="TranslationEdit" name="translationEdit">
+        <property name="styleSheet">
+         <string notr="true"/>
+        </property>
+        <property name="readOnly">
+         <bool>true</bool>
+        </property>
+        <property name="placeholderText">
+         <string>Translation</string>
+        </property>
+       </widget>
+      </item>
+      <item>
+       <layout class="QHBoxLayout" name="translationButtonsLayout">
+        <item>
+         <spacer name="translationButtonsSpacer">
+          <property name="orientation">
+           <enum>Qt::Horizontal</enum>
+          </property>
+          <property name="sizeHint" stdset="0">
+           <size>
+            <width>40</width>
+            <height>20</height>
+           </size>
+          </property>
+         </spacer>
+        </item>
+        <item>
+         <widget class="QComboBox" name="engineComboBox">
+          <property name="minimumSize">
+           <size>
+            <width>1</width>
+            <height>1</height>
+           </size>
+          </property>
+          <item>
+           <property name="text">
+            <string notr="true">Google</string>
+           </property>
+           <property name="icon">
+            <iconset resource="../data/icons/engines/engines.qrc">
+             <normaloff>:/icons/engines/google.svg</normaloff>:/icons/engines/google.svg</iconset>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string notr="true">Yandex</string>
+           </property>
+           <property name="icon">
+            <iconset resource="../data/icons/engines/engines.qrc">
+             <normaloff>:/icons/engines/yandex.svg</normaloff>:/icons/engines/yandex.svg</iconset>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string notr="true">Bing</string>
+           </property>
+           <property name="icon">
+            <iconset resource="../data/icons/engines/engines.qrc">
+             <normaloff>:/icons/engines/bing.svg</normaloff>:/icons/engines/bing.svg</iconset>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string notr="true">LibreTranslate</string>
+           </property>
+           <property name="icon">
+            <iconset resource="../data/icons/engines/engines.qrc">
+             <normaloff>:/icons/engines/libretranslate.svg</normaloff>:/icons/engines/libretranslate.svg</iconset>
+           </property>
+          </item>
+          <item>
+           <property name="text">
+            <string notr="true">Lingva</string>
+           </property>
+           <property name="icon">
+            <iconset resource="../data/icons/engines/engines.qrc">
+             <normaloff>:/icons/engines/lingva.svg</normaloff>:/icons/engines/lingva.svg</iconset>
+           </property>
+          </item>
+         </widget>
+        </item>
+        <item>
+         <widget class="SpeakButtons" name="translationSpeakButtons" native="true">
+          <property name="enabled">
+           <bool>false</bool>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="copyTranslationButton">
+          <property name="toolTip">
+           <string>Copy translation to the clipboard</string>
+          </property>
+          <property name="icon">
+           <iconset theme="edit-copy">
+            <normaloff>.</normaloff>.</iconset>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="copyAllTranslationButton">
+          <property name="toolTip">
+           <string>Copy all translation data to the clipboard</string>
+          </property>
+          <property name="icon">
+           <iconset theme="edit-select-all">
+            <normaloff>.</normaloff>.</iconset>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="delayedTranslateScreenAreaButton">
+          <property name="toolTip">
+           <string>Translate screen area with delay</string>
+          </property>
+          <property name="icon">
+           <iconset theme="transform-crop">
+            <normaloff>.</normaloff>.</iconset>
+          </property>
+         </widget>
+        </item>
+        <item>
+         <widget class="QToolButton" name="settingsButton">
+          <property name="toolTip">
+           <string>Application settings</string>
+          </property>
+          <property name="icon">
+           <iconset theme="configure">
+            <normaloff>.</normaloff>.</iconset>
+          </property>
+         </widget>
+        </item>
+       </layout>
+      </item>
+     </layout>
+    </item>
+   </layout>
+  </widget>
+ </widget>
+ <layoutdefault spacing="6" margin="11"/>
+ <customwidgets>
+  <customwidget>
+   <class>SpeakButtons</class>
+   <extends>QWidget</extends>
+   <header>speakbuttons.h</header>
+   <container>1</container>
+   <slots>
+    <signal>playerMediaRequested()</signal>
+    <slot>stopSpeaking()</slot>
+   </slots>
+  </customwidget>
+  <customwidget>
+   <class>LanguageButtonsWidget</class>
+   <extends>QWidget</extends>
+   <header>languagebuttonswidget.h</header>
+   <container>1</container>
+  </customwidget>
+  <customwidget>
+   <class>SourceTextEdit</class>
+   <extends>QPlainTextEdit</extends>
+   <header>sourcetextedit.h</header>
+   <slots>
+    <signal>sourceEmpty(bool)</signal>
+    <signal>textEdited()</signal>
+    <slot>stopEditTimer()</slot>
+   </slots>
+  </customwidget>
+  <customwidget>
+   <class>TranslationEdit</class>
+   <extends>QTextEdit</extends>
+   <header>translationedit.h</header>
+   <slots>
+    <signal>translationEmpty(bool)</signal>
+   </slots>
+  </customwidget>
+ </customwidgets>
+ <tabstops>
+  <tabstop>sourceEdit</tabstop>
+  <tabstop>translationEdit</tabstop>
+  <tabstop>swapButton</tabstop>
+  <tabstop>clearButton</tabstop>
+  <tabstop>translateButton</tabstop>
+  <tabstop>abortButton</tabstop>
+  <tabstop>copySourceButton</tabstop>
+  <tabstop>autoTranslateCheckBox</tabstop>
+  <tabstop>engineComboBox</tabstop>
+  <tabstop>copyTranslationButton</tabstop>
+  <tabstop>copyAllTranslationButton</tabstop>
+  <tabstop>settingsButton</tabstop>
+ </tabstops>
+ <resources>
+  <include location="../data/icons/engines/engines.qrc"/>
+ </resources>
+ <connections>
+  <connection>
+   <sender>swapButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>swapLanguages()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>324</x>
+     <y>22</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>settingsButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>openSettings()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>626</x>
+     <y>276</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>engineComboBox</sender>
+   <signal>currentIndexChanged(int)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>markContentAsChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>403</x>
+     <y>276</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>102</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>copySourceButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>copySourceText()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>98</x>
+     <y>276</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>autoTranslateCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>setListenForContentChanges(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>205</x>
+     <y>276</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>copyTranslationButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>copyTranslation()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>550</x>
+     <y>276</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>copyAllTranslationButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>copyAllTranslationInfo()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>588</x>
+     <y>276</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>abortButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>cancelOperation()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>324</x>
+     <y>221</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>149</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>translateButton</sender>
+   <signal>clicked()</signal>
+   <receiver>sourceEdit</receiver>
+   <slot>stopEditTimer()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>324</x>
+     <y>122</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>154</x>
+     <y>141</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>sourceEdit</sender>
+   <signal>sourceEmpty(bool)</signal>
+   <receiver>sourceSpeakButtons</receiver>
+   <slot>setDisabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>154</x>
+     <y>141</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>6</x>
+     <y>261</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>translationEdit</sender>
+   <signal>translationEmpty(bool)</signal>
+   <receiver>translationSpeakButtons</receiver>
+   <slot>setDisabled(bool)</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>495</x>
+     <y>141</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>528</x>
+     <y>261</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>clearButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>clearText()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>324</x>
+     <y>61</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>142</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>sourceEdit</sender>
+   <signal>textChanged()</signal>
+   <receiver>sourceSpeakButtons</receiver>
+   <slot>stopSpeaking()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>158</x>
+     <y>134</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>9</x>
+     <y>256</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>delayedRecognizeScreenAreaButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>delayedRecognizeScreenArea()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>67</x>
+     <y>181</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>102</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>delayedTranslateScreenAreaButton</sender>
+   <signal>clicked()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>delayedTranslateScreenArea()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>587</x>
+     <y>181</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>102</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>sourceEdit</sender>
+   <signal>textEdited()</signal>
+   <receiver>MainWindow</receiver>
+   <slot>markContentAsChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>144</x>
+     <y>85</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>102</y>
+    </hint>
+   </hints>
+  </connection>
+  <connection>
+   <sender>autoTranslateCheckBox</sender>
+   <signal>toggled(bool)</signal>
+   <receiver>MainWindow</receiver>
+   <slot>markContentAsChanged()</slot>
+   <hints>
+    <hint type="sourcelabel">
+     <x>185</x>
+     <y>181</y>
+    </hint>
+    <hint type="destinationlabel">
+     <x>324</x>
+     <y>102</y>
+    </hint>
+   </hints>
+  </connection>
+ </connections>
+ <slots>
+  <slot>swapLanguages()</slot>
+  <slot>openSettings()</slot>
+  <slot>setListenForContentChanges(bool)</slot>
+  <slot>copySourceText()</slot>
+  <slot>copyTranslation()</slot>
+  <slot>copyAllTranslationInfo()</slot>
+  <slot>cancelOperation()</slot>
+  <slot>clearText()</slot>
+  <slot>delayedRecognizeScreenArea()</slot>
+  <slot>delayedTranslateScreenArea()</slot>
+  <slot>markContentAsChanged()</slot>
+ </slots>
+</ui>

@@ -1,0 +1,9 @@
+<RCC>
+    <qresource prefix="/icons/engines/">
+        <file>google.svg</file>
+        <file>yandex.svg</file>
+        <file>bing.svg</file>
+        <file>libretranslate.svg</file>
+        <file>lingva.svg</file>
+    </qresource>
+</RCC>
