@@ -13,22 +13,24 @@ Window {
     color: "transparent"
     visible: false
 
+    property bool closeArmed: false
+
     function popAt(x, y) {
-        let targetX = x
-        let targetY = y
-        if (Screen.desktopAvailableWidth && targetX + width > Screen.virtualX + Screen.desktopAvailableWidth) {
-            targetX = x - width
-        }
-        if (Screen.desktopAvailableHeight && targetY + height > Screen.virtualY + Screen.desktopAvailableHeight) {
-            targetY = y - height
-        }
-        popup.x = Math.max(0, targetX)
-        popup.y = Math.max(0, targetY)
+        popup.x = x
+        popup.y = y
+        closeArmed = false
         popup.show()
+        popup.raise()
         popup.requestActivate()
+        closeArmDelay.restart()
     }
 
-    onActiveChanged: if (!active) popup.close()
+    // Activating a window we just showed can briefly report active=false before
+    // settling to true; closing on that first flicker would hide the popup the
+    // instant it appears, so only start reacting to deactivation once it has
+    // had a moment to actually gain focus.
+    Timer { id: closeArmDelay; interval: 250; onTriggered: popup.closeArmed = true }
+    onActiveChanged: if (!active && closeArmed) popup.close()
 
     Rectangle {
         anchors.fill: parent

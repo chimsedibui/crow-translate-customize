@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from py_crow_tool.core.models import DetectedLanguage, TranslationError, TranslationException, TranslationRequest, TranslationResult
 from py_crow_tool.core.provider import TranslationProvider
 
@@ -46,5 +48,19 @@ class ProviderManager:
             if close:
                 await close()
 
-    def replace(self, providers: list[TranslationProvider]) -> None:
+    def replace(self, providers: list[TranslationProvider]) -> list[TranslationProvider]:
+        old_providers = list(self.providers.values())
         self.providers = {provider.id: provider for provider in providers}
+        return old_providers
+
+    @staticmethod
+    async def close_providers(providers: list[TranslationProvider]) -> None:
+        for provider in providers:
+            pending = getattr(provider, "pending_tasks", None)
+            if pending:
+                tasks = pending()
+                if tasks:
+                    await asyncio.gather(*tasks, return_exceptions=True)
+            close = getattr(provider, "close", None)
+            if close:
+                await close()

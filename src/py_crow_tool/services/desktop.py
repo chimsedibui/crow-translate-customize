@@ -26,7 +26,13 @@ class SingleInstance(QObject):
                 self.is_primary = self._server.listen(name)
                 if not self.is_primary:
                     # Sandboxed environments may block local sockets entirely.
-                    # Continue without single-instance enforcement in that case.
+                    # Continue without single-instance enforcement in that case,
+                    # but make it loud: two instances would fight over the same
+                    # global hotkeys and each spin up their own tray icon.
+                    sys.stderr.write(
+                        f"Warning: could not enforce single-instance lock for '{name}'; "
+                        "multiple instances of PyCrow Tool may run and conflict (e.g. duplicate hotkeys/tray icons).\n"
+                    )
                     self.is_primary = True
 
 
@@ -60,7 +66,8 @@ class DesktopServices(QObject):
             handle = keyboard.add_hotkey(sequence, lambda: self.shortcutTriggered.emit(action))
             self._shortcuts.append(handle)
             return True
-        except (ImportError, OSError, RuntimeError):
+        except (ImportError, OSError, RuntimeError) as error:
+            sys.stderr.write(f"Global hotkey '{sequence}' unavailable: {type(error).__name__}: {error}\n")
             return False
 
     @staticmethod
@@ -71,7 +78,8 @@ class DesktopServices(QObject):
 
             keyboard.send("ctrl+c")
             return True
-        except (ImportError, OSError, RuntimeError):
+        except (ImportError, OSError, RuntimeError) as error:
+            sys.stderr.write(f"Could not simulate Ctrl+C: {type(error).__name__}: {error}\n")
             return False
 
     @staticmethod

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Effects
 
 ApplicationWindow {
     id: root
@@ -56,6 +57,46 @@ ApplicationWindow {
         }
     }
 
+    component IconButton: ToolButton {
+        id: iconBtn
+        implicitWidth: 38
+        implicitHeight: 38
+        font.pixelSize: 16
+
+        background: Item {
+            anchors.fill: parent
+            Rectangle {
+                id: face
+                anchors.fill: parent
+                anchors.margins: iconBtn.pressed ? 2 : 0
+                radius: 10
+                visible: false
+                gradient: Gradient {
+                    GradientStop { position: 0.0; color: !iconBtn.enabled ? "#eef0f3" : (iconBtn.pressed ? "#d9dde2" : (iconBtn.hovered ? "#ffffff" : "#f7f8fa")) }
+                    GradientStop { position: 1.0; color: !iconBtn.enabled ? "#e4e7eb" : (iconBtn.pressed ? "#c7ccd2" : "#e3e7eb") }
+                }
+                border.width: 1
+                border.color: iconBtn.pressed ? "#b7bcc3" : "#d2d7dd"
+            }
+            MultiEffect {
+                anchors.fill: face
+                source: face
+                shadowEnabled: iconBtn.enabled && !iconBtn.pressed
+                shadowColor: "#33202020"
+                shadowBlur: 0.4
+                shadowVerticalOffset: 2
+                shadowHorizontalOffset: 0
+            }
+        }
+        contentItem: Text {
+            text: iconBtn.text
+            font: iconBtn.font
+            color: iconBtn.enabled ? "#2b2f36" : "#a7acb3"
+            horizontalAlignment: Text.AlignHCenter
+            verticalAlignment: Text.AlignVCenter
+        }
+    }
+
     header: ToolBar {
         height: 44
         background: Rectangle { color: "#20242a" }
@@ -77,7 +118,7 @@ ApplicationWindow {
             Layout.fillWidth: true
             spacing: 6
 
-            ToolButton {
+            IconButton {
                 text: "✎"
                 ToolTip.text: "Choose source language"
                 ToolTip.visible: hovered
@@ -107,7 +148,7 @@ ApplicationWindow {
                 Component.onCompleted: currentIndex = indexOfValue(translationModel.targetLanguage)
                 onActivated: translationModel.targetLanguage = currentValue
             }
-            ToolButton {
+            IconButton {
                 text: "✎"
                 ToolTip.text: "Choose target language"
                 ToolTip.visible: hovered
@@ -125,7 +166,6 @@ ApplicationWindow {
                 SplitView.minimumWidth: 280
                 padding: 0
                 TextArea {
-                    id: sourceArea
                     anchors.fill: parent
                     anchors.margins: 14
                     placeholderText: "Enter text"
@@ -150,35 +190,31 @@ ApplicationWindow {
                 ColumnLayout {
                     anchors.centerIn: parent
                     spacing: 10
-                    ToolButton {
+                    IconButton {
                         text: "⇄"
-                        font.pixelSize: 18
                         Layout.alignment: Qt.AlignHCenter
-                        enabled: translationModel.sourceLanguage !== "auto"
+                        enabled: translationModel.sourceLanguage !== "auto" || translationModel.detectedSourceLanguage.length > 0
                         ToolTip.text: "Swap languages"
                         ToolTip.visible: hovered
                         onClicked: translationModel.swapLanguages()
                     }
-                    ToolButton {
+                    IconButton {
                         text: "⊗"
-                        font.pixelSize: 18
                         Layout.alignment: Qt.AlignHCenter
                         ToolTip.text: "Clear source"
                         ToolTip.visible: hovered
                         onClicked: translationModel.clearSource()
                     }
-                    ToolButton {
+                    IconButton {
                         text: "→"
-                        font.pixelSize: 18
                         Layout.alignment: Qt.AlignHCenter
                         enabled: !translationModel.busy && translationModel.sourceText.trim().length > 0
                         ToolTip.text: "Translate"
                         ToolTip.visible: hovered
                         onClicked: translationModel.translate()
                     }
-                    ToolButton {
+                    IconButton {
                         text: "✕"
-                        font.pixelSize: 18
                         Layout.alignment: Qt.AlignHCenter
                         ToolTip.text: "Clear both"
                         ToolTip.visible: hovered
@@ -192,7 +228,6 @@ ApplicationWindow {
                 SplitView.minimumWidth: 280
                 padding: 0
                 TextArea {
-                    id: translatedArea
                     anchors.fill: parent
                     anchors.margins: 14
                     readOnly: true
@@ -208,10 +243,10 @@ ApplicationWindow {
         RowLayout {
             Layout.fillWidth: true
             spacing: 4
-            ToolButton { text: "▶"; ToolTip.text: "Speak source"; ToolTip.visible: hovered; onClicked: ttsService.speak(translationModel.sourceText, translationModel.sourceLanguage) }
-            ToolButton { text: "■"; ToolTip.text: "Stop speaking"; ToolTip.visible: hovered; onClicked: ttsService.stop() }
-            ToolButton { text: "⎘"; ToolTip.text: "Copy source"; ToolTip.visible: hovered; onClicked: translationModel.copySource() }
-            ToolButton { text: "📋"; ToolTip.text: "Paste"; ToolTip.visible: hovered; onClicked: translationModel.pasteSource() }
+            IconButton { text: "▶"; enabled: !ttsService.speaking; ToolTip.text: "Speak source"; ToolTip.visible: hovered; onClicked: ttsService.speak(translationModel.sourceText, translationModel.sourceLanguage) }
+            IconButton { text: "■"; enabled: ttsService.speaking; ToolTip.text: "Stop speaking"; ToolTip.visible: hovered; onClicked: ttsService.stop() }
+            IconButton { text: "⎘"; ToolTip.text: "Copy source"; ToolTip.visible: hovered; onClicked: translationModel.copySource() }
+            IconButton { text: "📋"; ToolTip.text: "Paste"; ToolTip.visible: hovered; onClicked: translationModel.pasteSource() }
             BusyIndicator { running: translationModel.busy; visible: running; Layout.preferredWidth: 24; Layout.preferredHeight: 24 }
 
             Item { Layout.fillWidth: true }
@@ -219,12 +254,12 @@ ApplicationWindow {
             Item { Layout.fillWidth: true }
 
             ComboBox { Layout.preferredWidth: 120; model: ["Google"] }
-            ToolButton { text: "▶"; ToolTip.text: "Speak result"; ToolTip.visible: hovered; onClicked: ttsService.speak(translationModel.translatedText, translationModel.targetLanguage) }
-            ToolButton { text: "■"; ToolTip.text: "Stop speaking"; ToolTip.visible: hovered; onClicked: ttsService.stop() }
-            ToolButton { text: "⎘"; ToolTip.text: "Copy translation"; ToolTip.visible: hovered; onClicked: translationModel.copyTranslated() }
-            ToolButton { text: "🖼"; ToolTip.text: "OCR clipboard image"; ToolTip.visible: hovered; onClicked: ocrService.recognizeClipboardImage() }
-            ToolButton { text: "🕘"; ToolTip.text: "History"; ToolTip.visible: hovered; onClicked: historyDrawer.open() }
-            ToolButton { text: "⚙"; ToolTip.text: "Settings"; ToolTip.visible: hovered; onClicked: settingsDialog.open() }
+            IconButton { text: "▶"; enabled: !ttsService.speaking; ToolTip.text: "Speak result"; ToolTip.visible: hovered; onClicked: ttsService.speak(translationModel.translatedText, translationModel.targetLanguage) }
+            IconButton { text: "■"; enabled: ttsService.speaking; ToolTip.text: "Stop speaking"; ToolTip.visible: hovered; onClicked: ttsService.stop() }
+            IconButton { text: "⎘"; ToolTip.text: "Copy translation"; ToolTip.visible: hovered; onClicked: translationModel.copyTranslated() }
+            IconButton { text: "🖼"; ToolTip.text: "OCR clipboard image"; ToolTip.visible: hovered; onClicked: ocrService.recognizeClipboardImage() }
+            IconButton { text: "🕘"; ToolTip.text: "History"; ToolTip.visible: hovered; onClicked: historyDrawer.open() }
+            IconButton { text: "⚙"; ToolTip.text: "Settings"; ToolTip.visible: hovered; onClicked: settingsDialog.open() }
         }
     }
 

@@ -24,8 +24,6 @@ LANGUAGES: tuple[tuple[str, str], ...] = (
     ("vi", "Vietnamese"),
 )
 
-LANGUAGE_NAMES = dict(LANGUAGES)
-
 
 def normalize_language(code: str) -> str:
     value = code.strip()

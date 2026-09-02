@@ -20,7 +20,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-windows = ["pywin32>=306", "keyboard>=0.13.5"]
+windows = ["keyboard>=0.13.5"]
 test = ["pytest>=8.2", "pytest-asyncio>=0.23", "pytest-qt>=4.4", "respx>=0.21"]
 build = ["pyinstaller>=6.8"]
 

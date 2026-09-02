@@ -12,26 +12,32 @@ class HttpProvider:
     def __init__(self, *, client: httpx.AsyncClient | None = None, timeout: float = 20.0):
         self._owns_client = client is None
         self._client = client or httpx.AsyncClient(timeout=timeout)
-        self._tasks: dict[str, asyncio.Task[Any]] = {}
+        self._tasks: dict[str, list[asyncio.Task[Any]]] = {}
 
     async def close(self) -> None:
         if self._owns_client:
             await self._client.aclose()
 
     def cancel(self, request_id: str) -> None:
-        task = self._tasks.get(request_id)
-        if task:
+        for task in self._tasks.get(request_id, []):
             task.cancel()
+
+    def pending_tasks(self) -> list[asyncio.Task[Any]]:
+        return [task for tasks in self._tasks.values() for task in tasks]
 
     async def _run(self, request_id: str, operation):
         task = asyncio.create_task(operation)
-        self._tasks[request_id] = task
+        self._tasks.setdefault(request_id, []).append(task)
         try:
             return await task
         except asyncio.CancelledError as error:
             raise TranslationException(TranslationError.CANCELLED, "Translation cancelled") from error
         finally:
-            self._tasks.pop(request_id, None)
+            tasks = self._tasks.get(request_id)
+            if tasks is not None:
+                tasks.remove(task)
+                if not tasks:
+                    self._tasks.pop(request_id, None)
 
     async def _request(self, method: str, url: str, **kwargs: Any) -> httpx.Response:
         last_error: Exception | None = None
@@ -45,10 +51,23 @@ class HttpProvider:
                     continue
                 raise TranslationException(TranslationError.NETWORK, str(error), retryable=True) from error
             if response.status_code in {429, 500, 502, 503, 504} and attempt < 2:
-                await asyncio.sleep(0.25 * (2**attempt))
+                delay = 0.25 * (2**attempt)
+                if response.status_code == 429:
+                    delay = max(delay, self._retry_after_seconds(response) or 0.0)
+                await asyncio.sleep(min(delay, 30.0))
                 continue
             return response
         raise TranslationException(TranslationError.NETWORK, str(last_error), retryable=True)
+
+    @staticmethod
+    def _retry_after_seconds(response: httpx.Response) -> float | None:
+        header = response.headers.get("Retry-After")
+        if not header:
+            return None
+        try:
+            return float(header)
+        except ValueError:
+            return None
 
     @staticmethod
     def _raise_for_response(response: httpx.Response) -> None:

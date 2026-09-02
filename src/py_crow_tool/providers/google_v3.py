@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from pathlib import Path
 
 import httpx
@@ -27,12 +28,21 @@ class GoogleV3Provider(HttpProvider):
         self.location = location.strip() or "global"
         self.credentials_file = credentials_file.strip()
         self._credentials: Credentials | None = None
+        self._credentials_lock = asyncio.Lock()
+        self._configured_cache: tuple[float, bool] | None = None
 
     @property
     def configured(self) -> bool:
         if not self.project_id:
             return False
-        return not self.credentials_file or Path(self.credentials_file).is_file()
+        if not self.credentials_file:
+            return True
+        now = time.monotonic()
+        if self._configured_cache is not None and now - self._configured_cache[0] < 2.0:
+            return self._configured_cache[1]
+        result = Path(self.credentials_file).is_file()
+        self._configured_cache = (now, result)
+        return result
 
     @property
     def parent(self) -> str:
@@ -40,15 +50,16 @@ class GoogleV3Provider(HttpProvider):
 
     async def _authorization(self) -> str:
         try:
-            if self._credentials is None:
-                if self.credentials_file:
-                    self._credentials = service_account.Credentials.from_service_account_file(self.credentials_file, scopes=SCOPES)
-                else:
-                    self._credentials, discovered_project = await asyncio.to_thread(default_credentials, scopes=SCOPES)
-                    if not self.project_id and discovered_project:
-                        self.project_id = discovered_project
-            if not self._credentials.valid:
-                await asyncio.to_thread(self._credentials.refresh, AuthRequest())
+            async with self._credentials_lock:
+                if self._credentials is None:
+                    if self.credentials_file:
+                        self._credentials = service_account.Credentials.from_service_account_file(self.credentials_file, scopes=SCOPES)
+                    else:
+                        self._credentials, discovered_project = await asyncio.to_thread(default_credentials, scopes=SCOPES)
+                        if not self.project_id and discovered_project:
+                            self.project_id = discovered_project
+                if not self._credentials.valid:
+                    await asyncio.to_thread(self._credentials.refresh, AuthRequest())
             return f"Bearer {self._credentials.token}"
         except Exception as error:
             raise TranslationException(TranslationError.AUTHENTICATION, f"Unable to initialize Google v3 credentials: {error}") from error
