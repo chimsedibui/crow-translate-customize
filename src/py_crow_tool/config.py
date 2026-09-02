@@ -17,13 +17,6 @@ class GoogleV2Settings:
 
 
 @dataclass(slots=True)
-class GoogleV3Settings:
-    project_id: str = ""
-    location: str = "global"
-    credentials_file: str = ""
-
-
-@dataclass(slots=True)
 class AppSettings:
     version: int = 1
     source_language: str = "auto"
@@ -35,20 +28,11 @@ class AppSettings:
     clipboard_hotkey: str = "ctrl+alt+t"
     quick_translate_hotkey: str = "ctrl+alt+q"
     google_v2: GoogleV2Settings = field(default_factory=GoogleV2Settings)
-    google_v3: GoogleV3Settings = field(default_factory=GoogleV3Settings)
     enabled_plugins: list[str] = field(default_factory=list)
 
     @property
     def v2_api_key(self) -> str:
         return os.getenv("PY_CROW_GOOGLE_API_KEY", self.google_v2.api_key)
-
-    @property
-    def v3_project_id(self) -> str:
-        return os.getenv("GOOGLE_CLOUD_PROJECT", self.google_v3.project_id)
-
-    @property
-    def v3_credentials_file(self) -> str:
-        return os.getenv("GOOGLE_APPLICATION_CREDENTIALS", self.google_v3.credentials_file)
 
 
 class SettingsStore:
@@ -85,7 +69,6 @@ class SettingsStore:
             clipboard_hotkey=str(data.get("clipboard_hotkey", "ctrl+alt+t")),
             quick_translate_hotkey=str(data.get("quick_translate_hotkey", "ctrl+alt+q")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
-            google_v3=GoogleV3Settings(**data.get("google_v3", {})),
             enabled_plugins=list(data.get("enabled_plugins", [])),
         )
 

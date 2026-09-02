@@ -19,7 +19,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--ocr", type=Path, help="Recognize text from an image before translating")
     result.add_argument("-s", "--source", default="auto", help="Source language code")
     result.add_argument("-t", "--target", default="en", help="Target language code")
-    result.add_argument("-p", "--provider", choices=["google-v3", "google-v2"], help="Override automatic provider selection")
+    result.add_argument("-p", "--provider", help="Override automatic provider selection (e.g. google-v2, or a plugin's provider id)")
     result.add_argument("--detect", action="store_true", help="Only detect the source language")
     result.add_argument("--json", action="store_true", help="Print structured JSON")
     return result

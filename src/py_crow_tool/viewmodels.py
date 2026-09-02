@@ -10,7 +10,6 @@ from py_crow_tool.core.languages import LANGUAGES
 from py_crow_tool.core.models import TranslationException, TranslationRequest
 from py_crow_tool.providers.manager import ProviderManager
 from py_crow_tool.providers.google_v2 import GoogleV2Provider
-from py_crow_tool.providers.google_v3 import GoogleV3Provider
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 from py_crow_tool.services.history import HistoryStore
 
@@ -199,10 +198,7 @@ class TranslationViewModel(QObject):
     @Slot()
     def savePreferences(self):
         self._loop_runner.submit(asyncio.to_thread(self._settings_store.save, self._settings))
-        old_providers = self._manager.replace([
-            GoogleV3Provider(self._settings.v3_project_id, self._settings.google_v3.location, self._settings.v3_credentials_file),
-            GoogleV2Provider(self._settings.v2_api_key),
-        ])
+        old_providers = self._manager.replace([GoogleV2Provider(self._settings.v2_api_key)])
         self._loop_runner.submit(ProviderManager.close_providers(old_providers))
         self._set_status(self._provider_status())
 
@@ -232,33 +228,6 @@ class SettingsViewModel(QObject):
     def apiKey(self, value):
         if value != self.settings.google_v2.api_key:
             self.settings.google_v2.api_key = value
-            self.settingsChanged.emit()
-
-    @Property(str, notify=settingsChanged)
-    def projectId(self): return self.settings.google_v3.project_id
-
-    @projectId.setter
-    def projectId(self, value):
-        if value != self.settings.google_v3.project_id:
-            self.settings.google_v3.project_id = value
-            self.settingsChanged.emit()
-
-    @Property(str, notify=settingsChanged)
-    def location(self): return self.settings.google_v3.location
-
-    @location.setter
-    def location(self, value):
-        if value != self.settings.google_v3.location:
-            self.settings.google_v3.location = value
-            self.settingsChanged.emit()
-
-    @Property(str, notify=settingsChanged)
-    def credentialsFile(self): return self.settings.google_v3.credentials_file
-
-    @credentialsFile.setter
-    def credentialsFile(self, value):
-        if value != self.settings.google_v3.credentials_file:
-            self.settings.google_v3.credentials_file = value
             self.settingsChanged.emit()
 
     @Property(bool, notify=settingsChanged)

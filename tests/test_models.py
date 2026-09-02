@@ -9,7 +9,7 @@ def test_language_normalization():
 
 
 def test_result_serializes_tuples():
-    result = TranslationResult("hello", "vi", "en", "google-v3", alternatives=("hi",))
+    result = TranslationResult("hello", "vi", "en", "google-v2", alternatives=("hi",))
     assert result.to_dict()["alternatives"] == ("hi",)
 
 

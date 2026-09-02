@@ -76,22 +76,15 @@ Document the selected policy in release notes. Verify the OCR language data need
 
 ## 6. Configure Google Cloud
 
-Do not embed API keys or service-account files in `PyCrowTool.exe`.
+Do not embed API keys in `PyCrowTool.exe`.
 
-For managed v3 deployments, configure these values per user or machine:
-
-```powershell
-[Environment]::SetEnvironmentVariable("GOOGLE_CLOUD_PROJECT", "your-project-id", "User")
-[Environment]::SetEnvironmentVariable("GOOGLE_APPLICATION_CREDENTIALS", "C:\secure\service-account.json", "User")
-```
-
-For Basic v2:
+For managed deployments, configure the API key per user or machine:
 
 ```powershell
 [Environment]::SetEnvironmentVariable("PY_CROW_GOOGLE_API_KEY", "your-api-key", "User")
 ```
 
-Environment variables avoid packaging secrets but are not a general-purpose secret vault. Restrict service-account files and Google API keys to the minimum required permissions and quotas.
+Environment variables avoid packaging secrets but are not a general-purpose secret vault. Restrict the Google API key to the minimum required permissions and quotas.
 
 ## 7. Verify on a clean machine
 
@@ -101,9 +94,7 @@ Release checklist:
 
 - [ ] The GUI opens without a Python, Qt, or missing-DLL error.
 - [ ] QML controls and dialogs render correctly at common display scales.
-- [ ] Google v3 works with ADC or a service-account file.
 - [ ] Google v2 works with an API key.
-- [ ] v3 is preferred when both providers are configured.
 - [ ] Translation errors do not expose credentials.
 - [ ] CLI behavior is tested separately from the GUI artifact when a CLI package is distributed.
 - [ ] Clipboard OCR works with the documented Tesseract installation.

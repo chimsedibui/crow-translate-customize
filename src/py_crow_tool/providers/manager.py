@@ -12,10 +12,9 @@ class ProviderManager:
 
     @property
     def active_provider(self) -> TranslationProvider:
-        for provider_id in ("google-v3", "google-v2"):
-            provider = self.providers.get(provider_id)
-            if provider and provider.configured:
-                return provider
+        default = self.providers.get("google-v2")
+        if default and default.configured:
+            return default
         for provider in self.providers.values():
             if provider.configured:
                 return provider

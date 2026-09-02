@@ -24,25 +24,24 @@ class FakeProvider:
 
 
 @pytest.mark.asyncio
-async def test_manager_prefers_v3():
-    v3, v2 = FakeProvider("google-v3"), FakeProvider("google-v2")
-    result = await ProviderManager([v2, v3]).translate(TranslationRequest("x", "en"))
-    assert result.provider_id == "google-v3"
+async def test_manager_prefers_google_v2_by_default():
+    v2, plugin = FakeProvider("google-v2"), FakeProvider("some-plugin")
+    result = await ProviderManager([plugin, v2]).translate(TranslationRequest("x", "en"))
+    assert result.provider_id == "google-v2"
 
 
 @pytest.mark.asyncio
-async def test_manager_uses_v2_when_v3_not_configured():
-    v3, v2 = FakeProvider("google-v3", False), FakeProvider("google-v2")
-    result = await ProviderManager([v3, v2]).translate(TranslationRequest("x", "en"))
-    assert result.provider_id == "google-v2"
+async def test_manager_falls_back_to_another_provider_when_google_v2_not_configured():
+    v2, plugin = FakeProvider("google-v2", False), FakeProvider("some-plugin")
+    result = await ProviderManager([v2, plugin]).translate(TranslationRequest("x", "en"))
+    assert result.provider_id == "some-plugin"
 
 
 @pytest.mark.asyncio
 async def test_manager_does_not_fallback_after_request_failure():
     failure = TranslationException(TranslationError.AUTHENTICATION, "denied")
-    v3, v2 = FakeProvider("google-v3", failure=failure), FakeProvider("google-v2")
+    primary, secondary = FakeProvider("google-v2", failure=failure), FakeProvider("some-plugin")
     with pytest.raises(TranslationException):
-        await ProviderManager([v3, v2]).translate(TranslationRequest("x", "en"))
-    assert v3.calls == 1
-    assert v2.calls == 0
-
+        await ProviderManager([primary, secondary]).translate(TranslationRequest("x", "en"))
+    assert primary.calls == 1
+    assert secondary.calls == 0

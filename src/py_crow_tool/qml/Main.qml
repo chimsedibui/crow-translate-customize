@@ -309,11 +309,7 @@ ApplicationWindow {
         ColumnLayout {
             width: parent.width
             spacing: 10
-            Label { text: "Advanced v3"; font.bold: true }
-            TextField { Layout.fillWidth: true; placeholderText: "Google Cloud project ID"; text: settingsModel.projectId; onTextChanged: settingsModel.projectId = text }
-            TextField { Layout.fillWidth: true; placeholderText: "Location (global)"; text: settingsModel.location; onTextChanged: settingsModel.location = text }
-            TextField { Layout.fillWidth: true; placeholderText: "Service account JSON path (blank for ADC)"; text: settingsModel.credentialsFile; onTextChanged: settingsModel.credentialsFile = text }
-            Label { text: "Basic v2 fallback"; font.bold: true; Layout.topMargin: 8 }
+            Label { text: "Google Cloud Translation"; font.bold: true }
             TextField { Layout.fillWidth: true; placeholderText: "API key"; echoMode: TextInput.Password; text: settingsModel.apiKey; onTextChanged: settingsModel.apiKey = text }
             Label { text: "Desktop behavior"; font.bold: true; Layout.topMargin: 8 }
             CheckBox { text: "Start with system"; checked: settingsModel.startWithSystem; onToggled: settingsModel.startWithSystem = checked }

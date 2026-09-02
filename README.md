@@ -6,9 +6,7 @@ This implementation is newer than the C++ version. It provides the core GUI and 
 
 ## Features
 
-- Google Cloud Translation Advanced v3 with OAuth/ADC or service-account credentials.
 - Google Cloud Translation Basic v2 with API-key authentication.
-- Automatic provider selection: configured v3 first, then v2.
 - QML desktop interface with language selection, history, settings, OCR input, and speech controls.
 - CLI translation, language detection, file/stdin input, OCR, and JSON output.
 - Versioned TOML settings in the current user's application-data directory.
@@ -52,20 +50,6 @@ If PowerShell blocks activation, run the virtual-environment executables directl
 
 ## Configure Google Cloud
 
-### Advanced v3
-
-Set a project and use Application Default Credentials:
-
-```powershell
-$env:GOOGLE_CLOUD_PROJECT = "your-project-id"
-$env:GOOGLE_APPLICATION_CREDENTIALS = "C:\secure\service-account.json"
-py-crow-gui
-```
-
-You can also enter the project, location, and credential-file path in Settings. The default location is `global`.
-
-### Basic v2
-
 Set an API key:
 
 ```powershell
@@ -73,9 +57,9 @@ $env:PY_CROW_GOOGLE_API_KEY = "your-api-key"
 py-crow-gui
 ```
 
-Alternatively, enter the key in Settings. When v3 and v2 are both configured, v3 is selected. The application does not retry a failed billable v3 request through v2; v2 is used only when v3 is unavailable or explicitly selected.
+Alternatively, enter the key in Settings.
 
-Settings can contain plaintext API keys and credential paths. Keep the settings file private and never commit credentials.
+Settings can contain a plaintext API key. Keep the settings file private and never commit credentials.
 
 ## CLI
 
@@ -92,7 +76,7 @@ py-crow --provider google-v2 -t en "Hola"
 |---|---|
 | `-s, --source` | Source language code; defaults to `auto`. |
 | `-t, --target` | Target language code; defaults to `en`. |
-| `-p, --provider` | Force `google-v3` or `google-v2`. |
+| `-p, --provider` | Force `google-v2`, or a plugin's provider id. |
 | `--file` | Read UTF-8 source text from a file. |
 | `--stdin` | Read source text from standard input. |
 | `--ocr` | Recognize source text from an image. |
@@ -106,7 +90,7 @@ Run `py-crow --help` for the current interface.
 | Path | Purpose |
 |---|---|
 | `src/py_crow_tool/core/` | Typed requests, results, language data, and provider protocol. |
-| `src/py_crow_tool/providers/` | Google v2/v3 providers and provider manager. |
+| `src/py_crow_tool/providers/` | Google v2 provider and provider manager. |
 | `src/py_crow_tool/services/` | History, OCR, TTS, and desktop adapters. |
 | `src/py_crow_tool/qml/` | QML application interface. |
 | `src/py_crow_tool/viewmodels.py` | QML-facing application state. |
