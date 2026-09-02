@@ -13,7 +13,7 @@ The applications are independent. Build and configure only the version you inten
 
 Use the **C++ version** when you need the broadest existing feature set or compatibility with the original Crow Translate workflows. It supports Google, Yandex, Bing, LibreTranslate, and Lingva through QOnlineTranslator. When a Google Cloud API key is configured, its Google engine uses the official Cloud Translation Basic v2 API.
 
-Use the **Python version** when you want a Python/QML codebase and official Google Cloud integration. It supports Google Cloud Advanced v3 and Basic v2, prefers v3 when both are configured, and exposes a Python provider plugin contract.
+Use the **Python version** when you want a Python/QML codebase and official Google Cloud integration. It supports Google Cloud Translation Basic v2, runs in the background with a tray icon and global hotkeys, and exposes a Python provider plugin contract.
 
 ## Documentation
 
@@ -26,8 +26,7 @@ Use the **Python version** when you want a Python/QML codebase and official Goog
 
 ### Python / PySide 6
 
-- [Overview and development](py_crow_tool/README.md)
-- [Windows deployment](py_crow_tool/WINDOWS_DEPLOY.md)
+- [Overview, development, and Windows deployment](py_crow_tool/README.md)
 
 ## Credentials
 
