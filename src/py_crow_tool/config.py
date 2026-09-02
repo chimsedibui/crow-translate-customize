@@ -31,6 +31,9 @@ class AppSettings:
     auto_translate: bool = False
     history_limit: int = 100
     tesseract_command: str = ""
+    start_with_system: bool = False
+    clipboard_hotkey: str = "ctrl+alt+t"
+    quick_translate_hotkey: str = "ctrl+alt+q"
     google_v2: GoogleV2Settings = field(default_factory=GoogleV2Settings)
     google_v3: GoogleV3Settings = field(default_factory=GoogleV3Settings)
     enabled_plugins: list[str] = field(default_factory=list)
@@ -78,6 +81,9 @@ class SettingsStore:
             auto_translate=bool(data.get("auto_translate", False)),
             history_limit=max(0, int(data.get("history_limit", 100))),
             tesseract_command=str(data.get("tesseract_command", "")),
+            start_with_system=bool(data.get("start_with_system", False)),
+            clipboard_hotkey=str(data.get("clipboard_hotkey", "ctrl+alt+t")),
+            quick_translate_hotkey=str(data.get("quick_translate_hotkey", "ctrl+alt+q")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
             google_v3=GoogleV3Settings(**data.get("google_v3", {})),
             enabled_plugins=list(data.get("enabled_plugins", [])),

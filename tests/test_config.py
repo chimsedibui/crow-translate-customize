@@ -8,6 +8,9 @@ def test_settings_round_trip(tmp_path: Path):
     expected = AppSettings(
         source_language="vi",
         target_language="en",
+        start_with_system=True,
+        clipboard_hotkey="ctrl+alt+c",
+        quick_translate_hotkey="ctrl+alt+q",
         google_v2=GoogleV2Settings("secret"),
         google_v3=GoogleV3Settings("project", "us-central1", "credentials.json"),
     )

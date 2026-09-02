@@ -12,18 +12,59 @@ ApplicationWindow {
     title: "PyCrow Tool"
     color: "#f4f5f7"
 
+    readonly property var flags: ({
+        "auto": "🌐", "ar": "🇸🇦", "zh-CN": "🇨🇳", "zh-TW": "🇹🇼", "nl": "🇳🇱", "en": "🇬🇧",
+        "fr": "🇫🇷", "de": "🇩🇪", "hi": "🇮🇳", "id": "🇮🇩", "it": "🇮🇹", "ja": "🇯🇵",
+        "ko": "🇰🇷", "pl": "🇵🇱", "pt": "🇵🇹", "ru": "🇷🇺", "es": "🇪🇸", "th": "🇹🇭",
+        "tr": "🇹🇷", "vi": "🇻🇳"
+    })
+
+    function flagFor(code) { return flags[code] || "🌐" }
+
+    function languageName(code) {
+        for (let i = 0; i < translationModel.languages.length; i++) {
+            if (translationModel.languages[i].code === code) return translationModel.languages[i].name
+        }
+        return code
+    }
+
+    component LanguageChip: ComboBox {
+        id: chip
+        Layout.preferredWidth: 210
+        Layout.preferredHeight: 36
+        textRole: "name"
+        valueRole: "code"
+        property string overrideText: ""
+        background: Rectangle {
+            radius: 18
+            color: chip.pressed ? "#dde1e6" : (chip.hovered ? "#e6e9ed" : "#eef0f3")
+            border.color: "#d5d9de"
+        }
+        contentItem: RowLayout {
+            spacing: 6
+            anchors.fill: parent
+            anchors.leftMargin: 14
+            anchors.rightMargin: 6
+            Label { text: flagFor(chip.currentValue); font.pixelSize: 15 }
+            Label {
+                Layout.fillWidth: true
+                text: chip.overrideText.length > 0 ? chip.overrideText : chip.currentText
+                elide: Text.ElideRight
+                font.pixelSize: 13
+                color: "#20242a"
+            }
+        }
+    }
+
     header: ToolBar {
-        height: 52
+        height: 44
         background: Rectangle { color: "#20242a" }
         RowLayout {
             anchors.fill: parent
             anchors.leftMargin: 18
             anchors.rightMargin: 12
-            Label { text: "PyCrow Tool"; color: "white"; font.pixelSize: 18; font.bold: true }
+            Label { text: "PyCrow Tool"; color: "white"; font.pixelSize: 16; font.bold: true }
             Item { Layout.fillWidth: true }
-            Label { text: translationModel.status; color: "#c8d0d9"; elide: Text.ElideRight; Layout.maximumWidth: 320 }
-            ToolButton { text: "History"; onClicked: historyDrawer.open(); palette.buttonText: "white" }
-            ToolButton { text: "Settings"; onClicked: settingsDialog.open(); palette.buttonText: "white" }
         }
     }
 
@@ -34,27 +75,44 @@ ApplicationWindow {
 
         RowLayout {
             Layout.fillWidth: true
-            ComboBox {
+            spacing: 6
+
+            ToolButton {
+                text: "✎"
+                ToolTip.text: "Choose source language"
+                ToolTip.visible: hovered
+                onClicked: sourceLanguage.popup.open()
+            }
+            LanguageChip {
                 id: sourceLanguage
-                Layout.preferredWidth: 220
                 model: translationModel.languages
-                textRole: "name"
-                valueRole: "code"
+                overrideText: currentValue === "auto" && translationModel.detectedSourceLanguage.length > 0
+                    ? "Auto (" + languageName(translationModel.detectedSourceLanguage) + ")"
+                    : ""
                 Component.onCompleted: currentIndex = indexOfValue(translationModel.sourceLanguage)
                 onActivated: translationModel.sourceLanguage = currentValue
             }
-            ToolButton { text: "Swap"; enabled: translationModel.sourceLanguage !== "auto"; onClicked: translationModel.swapLanguages() }
-            ComboBox {
+
+            Item { Layout.fillWidth: true }
+            CheckBox {
+                text: "Auto-translation"
+                checked: settingsModel.autoTranslate
+                onToggled: { settingsModel.autoTranslate = checked; settingsModel.save() }
+            }
+            Item { Layout.fillWidth: true }
+
+            LanguageChip {
                 id: targetLanguage
-                Layout.preferredWidth: 220
                 model: translationModel.languages.slice(1)
-                textRole: "name"
-                valueRole: "code"
                 Component.onCompleted: currentIndex = indexOfValue(translationModel.targetLanguage)
                 onActivated: translationModel.targetLanguage = currentValue
             }
-            Item { Layout.fillWidth: true }
-            Button { text: "OCR clipboard"; onClicked: ocrService.recognizeClipboardImage() }
+            ToolButton {
+                text: "✎"
+                ToolTip.text: "Choose target language"
+                ToolTip.visible: hovered
+                onClicked: targetLanguage.popup.open()
+            }
         }
 
         SplitView {
@@ -67,27 +125,81 @@ ApplicationWindow {
                 SplitView.minimumWidth: 280
                 padding: 0
                 TextArea {
+                    id: sourceArea
                     anchors.fill: parent
                     anchors.margins: 14
                     placeholderText: "Enter text"
                     wrapMode: TextEdit.Wrap
                     font.pixelSize: 18
                     text: translationModel.sourceText
-                    onTextChanged: if (activeFocus) translationModel.sourceText = text
+                    onTextChanged: {
+                        if (activeFocus) {
+                            translationModel.sourceText = text
+                            if (settingsModel.autoTranslate) autoTranslateTimer.restart()
+                        }
+                    }
+                }
+                Timer { id: autoTranslateTimer; interval: 600; onTriggered: translationModel.translate() }
+            }
+
+            Pane {
+                SplitView.preferredWidth: 52
+                SplitView.minimumWidth: 52
+                SplitView.maximumWidth: 52
+                padding: 0
+                ColumnLayout {
+                    anchors.centerIn: parent
+                    spacing: 10
+                    ToolButton {
+                        text: "⇄"
+                        font.pixelSize: 18
+                        Layout.alignment: Qt.AlignHCenter
+                        enabled: translationModel.sourceLanguage !== "auto"
+                        ToolTip.text: "Swap languages"
+                        ToolTip.visible: hovered
+                        onClicked: translationModel.swapLanguages()
+                    }
+                    ToolButton {
+                        text: "⊗"
+                        font.pixelSize: 18
+                        Layout.alignment: Qt.AlignHCenter
+                        ToolTip.text: "Clear source"
+                        ToolTip.visible: hovered
+                        onClicked: translationModel.clearSource()
+                    }
+                    ToolButton {
+                        text: "→"
+                        font.pixelSize: 18
+                        Layout.alignment: Qt.AlignHCenter
+                        enabled: !translationModel.busy && translationModel.sourceText.trim().length > 0
+                        ToolTip.text: "Translate"
+                        ToolTip.visible: hovered
+                        onClicked: translationModel.translate()
+                    }
+                    ToolButton {
+                        text: "✕"
+                        font.pixelSize: 18
+                        Layout.alignment: Qt.AlignHCenter
+                        ToolTip.text: "Clear both"
+                        ToolTip.visible: hovered
+                        onClicked: translationModel.clearAll()
+                    }
                 }
             }
+
             Pane {
                 SplitView.fillWidth: true
                 SplitView.minimumWidth: 280
                 padding: 0
                 TextArea {
+                    id: translatedArea
                     anchors.fill: parent
                     anchors.margins: 14
                     readOnly: true
                     selectByMouse: true
                     wrapMode: TextEdit.Wrap
                     font.pixelSize: 18
-                    text: translationModel.translatedText
+                    text: translationModel.busy ? "Translating..." : translationModel.translatedText
                     placeholderText: "Translation"
                 }
             }
@@ -95,11 +207,24 @@ ApplicationWindow {
 
         RowLayout {
             Layout.fillWidth: true
-            BusyIndicator { running: translationModel.busy; visible: running; Layout.preferredWidth: 36; Layout.preferredHeight: 36 }
+            spacing: 4
+            ToolButton { text: "▶"; ToolTip.text: "Speak source"; ToolTip.visible: hovered; onClicked: ttsService.speak(translationModel.sourceText, translationModel.sourceLanguage) }
+            ToolButton { text: "■"; ToolTip.text: "Stop speaking"; ToolTip.visible: hovered; onClicked: ttsService.stop() }
+            ToolButton { text: "⎘"; ToolTip.text: "Copy source"; ToolTip.visible: hovered; onClicked: translationModel.copySource() }
+            ToolButton { text: "📋"; ToolTip.text: "Paste"; ToolTip.visible: hovered; onClicked: translationModel.pasteSource() }
+            BusyIndicator { running: translationModel.busy; visible: running; Layout.preferredWidth: 24; Layout.preferredHeight: 24 }
+
             Item { Layout.fillWidth: true }
-            ToolButton { text: "Speak source"; onClicked: ttsService.speak(translationModel.sourceText, translationModel.sourceLanguage) }
-            ToolButton { text: "Speak result"; onClicked: ttsService.speak(translationModel.translatedText, translationModel.targetLanguage) }
-            Button { text: translationModel.busy ? "Translating" : "Translate"; enabled: !translationModel.busy && translationModel.sourceText.trim().length > 0; onClicked: translationModel.translate() }
+            Label { text: translationModel.status; color: "#747d87"; elide: Text.ElideRight; Layout.maximumWidth: 220 }
+            Item { Layout.fillWidth: true }
+
+            ComboBox { Layout.preferredWidth: 120; model: ["Google"] }
+            ToolButton { text: "▶"; ToolTip.text: "Speak result"; ToolTip.visible: hovered; onClicked: ttsService.speak(translationModel.translatedText, translationModel.targetLanguage) }
+            ToolButton { text: "■"; ToolTip.text: "Stop speaking"; ToolTip.visible: hovered; onClicked: ttsService.stop() }
+            ToolButton { text: "⎘"; ToolTip.text: "Copy translation"; ToolTip.visible: hovered; onClicked: translationModel.copyTranslated() }
+            ToolButton { text: "🖼"; ToolTip.text: "OCR clipboard image"; ToolTip.visible: hovered; onClicked: ocrService.recognizeClipboardImage() }
+            ToolButton { text: "🕘"; ToolTip.text: "History"; ToolTip.visible: hovered; onClicked: historyDrawer.open() }
+            ToolButton { text: "⚙"; ToolTip.text: "Settings"; ToolTip.visible: hovered; onClicked: settingsDialog.open() }
         }
     }
 
@@ -155,6 +280,10 @@ ApplicationWindow {
             TextField { Layout.fillWidth: true; placeholderText: "Service account JSON path (blank for ADC)"; text: settingsModel.credentialsFile; onTextChanged: settingsModel.credentialsFile = text }
             Label { text: "Basic v2 fallback"; font.bold: true; Layout.topMargin: 8 }
             TextField { Layout.fillWidth: true; placeholderText: "API key"; echoMode: TextInput.Password; text: settingsModel.apiKey; onTextChanged: settingsModel.apiKey = text }
+            Label { text: "Desktop behavior"; font.bold: true; Layout.topMargin: 8 }
+            CheckBox { text: "Start with system"; checked: settingsModel.startWithSystem; onToggled: settingsModel.startWithSystem = checked }
+            TextField { Layout.fillWidth: true; placeholderText: "Quick-translate hotkey (e.g. ctrl+alt+q)"; text: settingsModel.quickTranslateHotkey; onTextChanged: settingsModel.quickTranslateHotkey = text }
+            Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#747d87"; font.pixelSize: 11; text: "Select text anywhere, press the hotkey, and a translation popup appears near the cursor. Hotkey changes take effect after restart." }
             Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#a2462e"; text: "Credentials are stored in a user-readable settings file. Restrict access to your Windows account." }
         }
     }

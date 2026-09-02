@@ -64,6 +64,17 @@ class DesktopServices(QObject):
             return False
 
     @staticmethod
+    def simulate_copy() -> bool:
+        """Send Ctrl+C so the caller's current text selection lands on the clipboard."""
+        try:
+            import keyboard
+
+            keyboard.send("ctrl+c")
+            return True
+        except (ImportError, OSError, RuntimeError):
+            return False
+
+    @staticmethod
     def credential_file_is_private(path: Path) -> bool:
         if os.name == "nt":
             return True

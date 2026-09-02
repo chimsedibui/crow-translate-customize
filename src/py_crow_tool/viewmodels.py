@@ -22,6 +22,7 @@ class TranslationViewModel(QObject):
     busyChanged = Signal()
     statusChanged = Signal()
     historyChanged = Signal()
+    detectedSourceLanguageChanged = Signal()
     _resultReady = Signal(object, object)
     _errorReady = Signal(str)
 
@@ -36,6 +37,7 @@ class TranslationViewModel(QObject):
         self._source_language = settings.source_language
         self._target_language = settings.target_language
         self._busy = False
+        self._detected_source_language = ""
         self._status = self._provider_status()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="translation")
         self._resultReady.connect(self._apply_result)
@@ -85,6 +87,9 @@ class TranslationViewModel(QObject):
     @Property(str, notify=statusChanged)
     def status(self): return self._status
 
+    @Property(str, notify=detectedSourceLanguageChanged)
+    def detectedSourceLanguage(self): return self._detected_source_language
+
     @Property("QVariantList", constant=True)
     def languages(self):
         return [{"code": code, "name": name} for code, name in LANGUAGES]
@@ -117,9 +122,46 @@ class TranslationViewModel(QObject):
         self._translated_text = result.translated_text
         self.translatedTextChanged.emit()
         self._set_status(result.provider_id)
+        detected = result.source_language if request.source_language == "auto" else ""
+        if detected != self._detected_source_language:
+            self._detected_source_language = detected
+            self.detectedSourceLanguageChanged.emit()
         self._history.add(request.text, result.translated_text, result.source_language, result.target_language, result.provider_id)
         self.historyChanged.emit()
         self._set_busy(False)
+
+    @Slot()
+    def clearSource(self):
+        self.sourceText = ""
+
+    @Slot()
+    def clearAll(self):
+        self.sourceText = ""
+        if self._translated_text:
+            self._translated_text = ""
+            self.translatedTextChanged.emit()
+
+    @Slot()
+    def copyTranslated(self):
+        from PySide6.QtGui import QGuiApplication
+
+        if self._translated_text:
+            QGuiApplication.clipboard().setText(self._translated_text)
+
+    @Slot()
+    def copySource(self):
+        from PySide6.QtGui import QGuiApplication
+
+        if self._source_text:
+            QGuiApplication.clipboard().setText(self._source_text)
+
+    @Slot()
+    def pasteSource(self):
+        from PySide6.QtGui import QGuiApplication
+
+        text = QGuiApplication.clipboard().text()
+        if text:
+            self.sourceText = text
 
     @Slot(str)
     def _apply_error(self, message):
@@ -201,6 +243,33 @@ class SettingsViewModel(QObject):
     def credentialsFile(self, value):
         if value != self.settings.google_v3.credentials_file:
             self.settings.google_v3.credentials_file = value
+            self.settingsChanged.emit()
+
+    @Property(bool, notify=settingsChanged)
+    def autoTranslate(self): return self.settings.auto_translate
+
+    @autoTranslate.setter
+    def autoTranslate(self, value):
+        if value != self.settings.auto_translate:
+            self.settings.auto_translate = value
+            self.settingsChanged.emit()
+
+    @Property(bool, notify=settingsChanged)
+    def startWithSystem(self): return self.settings.start_with_system
+
+    @startWithSystem.setter
+    def startWithSystem(self, value):
+        if value != self.settings.start_with_system:
+            self.settings.start_with_system = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def quickTranslateHotkey(self): return self.settings.quick_translate_hotkey
+
+    @quickTranslateHotkey.setter
+    def quickTranslateHotkey(self, value):
+        if value != self.settings.quick_translate_hotkey:
+            self.settings.quick_translate_hotkey = value
             self.settingsChanged.emit()
 
     @Slot()
