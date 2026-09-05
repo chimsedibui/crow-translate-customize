@@ -158,15 +158,6 @@ Plugins are trusted Python packages registered in the `py_crow_tool.providers` e
 
 Plugins execute with the same permissions as the application. Install only trusted plugins.
 
-## Testing
-
-```bash
-python -m pip install -e '.[test]'
-pytest
-python -m compileall -q src tests
-```
-
-Google tests use mocked HTTP transports. Live credential tests should be opt-in and use a dedicated test project with strict quotas.
 
 ## Windows packaging and deployment
 
@@ -174,9 +165,7 @@ Cutting a signed `PyCrowTool.exe` release (PyInstaller build, Tesseract bundling
 
 ## Known limitations
 
-- Tesseract must be installed separately unless a future package bundles it.
 - Windows integration must be validated on Windows; Linux smoke tests cannot verify global hotkeys, startup registration, or the system tray implementation.
-- Pixel-selected screen capture and all legacy C++ workflows are not yet at full parity.
 - Credentials entered in Settings are not stored in Windows Credential Manager.
 
 ## License
