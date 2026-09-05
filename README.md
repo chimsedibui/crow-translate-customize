@@ -1,18 +1,54 @@
-# Crow Tool: Python Version
+# Crow Translate
 
-The Python version is a native desktop translation application built with Python 3.11, PySide 6, and QML. It uses the official Google Cloud Translation API and separates translation providers, desktop services, settings, and UI view models so the application can be extended in Python.
+Crow Translate is a native desktop translation app for Windows, Linux, and macOS. It translates text you type, text on your clipboard, or text captured from a screenshot (OCR), and it can read translations aloud. It sits quietly in the system tray and pops up instantly with a global hotkey, so translating something never means switching apps or opening a browser tab.
 
-This implementation is newer than the C++ version. It provides the core GUI and CLI translation workflows, history, clipboard OCR, TTS integration, background/tray operation, global hotkeys, and provider plugins. The C++ version remains the reference when full legacy desktop behavior is required.
+This repository contains the **Python version** of Crow Translate — a from-scratch rewrite of the original C++/Qt Widgets application, built on **Python 3.11, PySide 6, and QML**. It is functionally newer and actively developed; the legacy C++ version remains available as a reference for full historical desktop behavior.
 
-## Features
+> Looking for the old C++ build? See the note in [Relationship to the C++ version](#relationship-to-the-c-version).
 
-- Google Cloud Translation Basic v2 with API-key authentication.
-- QML desktop interface with language selection, history, settings, OCR input, and speech controls.
-- Runs like a normal background app: system tray icon, single-instance enforcement, and an optional "start with system" setting.
-- Global hotkeys: translate the current clipboard, or select text anywhere and pop up a translation near the cursor.
-- CLI translation, language detection, file/stdin input, OCR, and JSON output.
-- Versioned TOML settings in the current user's application-data directory.
-- Python translation-provider plugins through package entry points.
+## Why Crow Translate
+
+- **Translate without breaking flow.** A global hotkey translates whatever is on your clipboard, or whatever text you have selected anywhere on screen, in a small popup near your cursor — no window switching required.
+- **More than just typed text.** Grab text straight from a screenshot with built-in OCR, or have translations read aloud with text-to-speech.
+- **Runs in the background like a real desktop utility.** Single-instance enforcement, a system tray icon, and an optional "start with system" setting mean it behaves like part of your OS, not a webpage.
+- **Both a GUI and a CLI.** Everything available in the desktop UI — translation, language detection, OCR — is also scriptable from the command line, with JSON output for automation.
+- **Extensible by design.** Translation providers are a plugin interface. Google Cloud Translation ships built-in today; other providers can be added as Python packages without touching the core app.
+
+## What it looks like
+
+![Translation workspace with sample text](data/ui-preview.png)
+
+- Choose source and target languages above the text panels; use the middle button to swap them.
+- Use **Translate** or **Ctrl+Enter** to translate, and **Ctrl+L** to focus the source editor.
+- **Auto-translate** updates after a short typing pause and ignores outdated responses.
+- Paste, clipboard-image OCR, speech, and copy actions sit beside the text they affect.
+- Search **History** and select an entry to restore both texts and their languages.
+- Settings are applied with **Save changes**; **Cancel** discards edits.
+- Pin the quick-translate popup to keep it open when switching windows.
+
+The preview uses sample text. The interface uses Qt Quick's Basic style for consistent custom controls across platforms.
+
+## Feature summary
+
+| Area | What it does |
+|---|---|
+| Translation | Google Cloud Translation Basic v2 with API-key authentication; pluggable providers. |
+| Desktop UI | QML app with language selection, history, settings, OCR input, and speech controls. |
+| Background operation | System tray icon, single-instance enforcement, optional "start with system". |
+| Global hotkeys | Translate the clipboard, or select text anywhere and get a popup translation near the cursor. |
+| CLI | Translation, language detection, file/stdin input, OCR, JSON output — scriptable and automatable. |
+| Settings | Versioned TOML settings stored in the current user's application-data directory. |
+| Extensibility | Translation-provider plugins via Python package entry points. |
+
+## Relationship to the C++ version
+
+Crow Translate began as a C++/Qt Widgets application. This Python/PySide 6/QML implementation is a newer, actively developed rewrite that covers the core GUI and CLI translation workflows, history, clipboard OCR, TTS, background/tray operation, global hotkeys, and provider plugins. A few legacy behaviors (see [Known limitations](#known-limitations)) aren't at full parity yet, so the C++ version remains the reference when complete legacy desktop behavior is required.
+
+---
+
+# Developer guide
+
+The sections below cover setup, configuration, packaging, and internals for people building or extending Crow Translate.
 
 ## Requirements
 
@@ -134,152 +170,7 @@ Google tests use mocked HTTP transports. Live credential tests should be opt-in 
 
 ## Windows packaging and deployment
 
-This section packages `py_crow_tool` as `PyCrowTool.exe` with Python 3.11, PySide 6, QML, and PyInstaller.
-
-### 1. Requirements
-
-Install on 64-bit Windows 10 or Windows 11:
-
-- Python 3.11 from python.org, including the `py` launcher;
-- Git for Windows;
-- Tesseract OCR when OCR is required;
-- Microsoft Visual C++ Redistributable;
-- Windows SDK `signtool` when signing releases.
-
-Verify the tools in PowerShell:
-
-```powershell
-py -3.11 --version
-git --version
-tesseract --version
-```
-
-### 2. Prepare the source
-
-```powershell
-Set-Location C:\src\crow-tool\py_crow_tool
-py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -e ".[windows,test,build]"
-```
-
-Do not package from a virtual environment containing unrelated application dependencies. This step is also what determines whether global hotkeys work in the built executable — skipping the `windows` extra here means `keyboard` never gets bundled, and hotkeys will silently do nothing.
-
-### 3. Test before packaging
-
-```powershell
-.\.venv\Scripts\pytest.exe
-.\.venv\Scripts\python.exe -m compileall -q src tests
-.\.venv\Scripts\py-crow.exe --help
-.\.venv\Scripts\py-crow-gui.exe
-```
-
-Configure test credentials only through environment variables or a local user settings file. Do not place them in the source tree.
-
-### 4. Build the executable
-
-Use the repository script:
-
-```powershell
-.\scripts\build-windows.ps1
-```
-
-The script creates `.venv` when necessary, installs the `windows` and `build` extras, and invokes PyInstaller with `pycrow.spec`.
-
-The expected artifact is:
-
-```text
-dist/PyCrowTool.exe
-```
-
-To rebuild from a clean PyInstaller output directory:
-
-```powershell
-Remove-Item -Recurse -Force .\build, .\dist -ErrorAction SilentlyContinue
-.\scripts\build-windows.ps1
-```
-
-### 5. Tesseract deployment
-
-The current PyInstaller specification does not bundle Tesseract. Choose one deployment policy:
-
-1. Require users to install Tesseract and add it to `PATH`.
-2. Install Tesseract beside the application and configure its executable path in PyCrow settings.
-
-Document the selected policy in release notes. Verify the OCR language data needed by your users is installed.
-
-### 6. Configure Google Cloud
-
-Do not embed API keys in `PyCrowTool.exe`.
-
-For managed deployments, configure the API key per user or machine:
-
-```powershell
-[Environment]::SetEnvironmentVariable("PY_CROW_GOOGLE_API_KEY", "your-api-key", "User")
-```
-
-Environment variables avoid packaging secrets but are not a general-purpose secret vault. Restrict the Google API key to the minimum required permissions and quotas.
-
-### 7. Verify on a clean machine
-
-Test `dist/PyCrowTool.exe` on a clean Windows VM that does not have the development virtual environment.
-
-Release checklist:
-
-- [ ] The GUI opens without a Python, Qt, or missing-DLL error.
-- [ ] QML controls and dialogs render correctly at common display scales.
-- [ ] Google v2 works with an API key.
-- [ ] Translation errors do not expose credentials.
-- [ ] CLI behavior is tested separately from the GUI artifact when a CLI package is distributed.
-- [ ] Clipboard OCR works with the documented Tesseract installation.
-- [ ] TTS, tray actions, global hotkeys, and single-instance behavior work.
-- [ ] The application starts without network access and shows a useful configuration state.
-
-### 8. Sign the release
-
-Sign the executable with an organization-owned certificate:
-
-```powershell
-signtool sign /a /fd SHA256 /td SHA256 `
-  /tr http://timestamp.digicert.com `
-  .\dist\PyCrowTool.exe
-```
-
-Verify it:
-
-```powershell
-Get-AuthenticodeSignature .\dist\PyCrowTool.exe
-```
-
-Keep certificates and passwords outside the repository and CI logs.
-
-### 9. Publish
-
-Generate a checksum:
-
-```powershell
-Get-FileHash .\dist\PyCrowTool.exe -Algorithm SHA256
-```
-
-Publish the signed executable with:
-
-- the SHA-256 checksum;
-- supported Windows versions;
-- Tesseract installation instructions;
-- Google credential instructions;
-- known limitations and upgrade notes.
-
-### Windows packaging troubleshooting
-
-**PowerShell blocks virtual-environment activation** — Activation is optional. Invoke `.venv\Scripts\python.exe`, `pytest.exe`, and `pyinstaller.exe` directly as shown above.
-
-**PyInstaller cannot find QML files** — Build through `pycrow.spec`. It uses `collect_data_files("py_crow_tool")` and the wheel configuration includes `src/py_crow_tool/qml`.
-
-**OCR reports that Tesseract is missing** — Install Tesseract, add it to `PATH`, or configure the full executable path in application settings.
-
-**Windows blocks the executable** — Sign the release and distribute it from a trusted HTTPS location. New certificates may still build reputation gradually with Microsoft SmartScreen.
-
-**Global hotkeys don't fire** — See "Background operation and global hotkeys" above: confirm the `windows` extra was installed before packaging, rule out WSL2, and try running as Administrator.
+Cutting a signed `PyCrowTool.exe` release (PyInstaller build, Tesseract bundling policy, code signing, publishing checklist, and packaging troubleshooting) is documented separately in [docs/WINDOWS_PACKAGING.md](docs/WINDOWS_PACKAGING.md) — reach for it only when preparing a release, not for regular development.
 
 ## Known limitations
 

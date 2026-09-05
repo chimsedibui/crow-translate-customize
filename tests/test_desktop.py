@@ -1,4 +1,5 @@
 import builtins
+import sys
 
 import pytest
 
@@ -17,11 +18,44 @@ def _block_import(monkeypatch, blocked_name: str) -> None:
 
 
 def test_register_shortcut_returns_false_when_keyboard_module_is_missing(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "platform", "linux")
     _block_import(monkeypatch, "keyboard")
     desktop = DesktopServices()
 
     assert desktop.register_shortcut("ctrl+alt+q", "quick-translate") is False
     assert "unavailable" in capsys.readouterr().err
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Windows native hotkeys")
+def test_native_hotkey_registration_conflict_and_cleanup(qapp, capsys):
+    first, second = DesktopServices(), DesktopServices()
+    received = []
+    first.shortcutTriggered.connect(received.append)
+    try:
+        assert first.register_shortcut("ctrl+alt+f23", "quick-translate")
+        assert not second.register_shortcut("ctrl+alt+f23", "other")
+        assert "unavailable" in capsys.readouterr().err
+        hotkey_id = next(iter(first._native_actions))
+        assert first._on_native_hotkey(hotkey_id)
+        assert received == ["quick-translate"]
+        assert not first._on_native_hotkey(-1)
+        first.unregister_shortcuts()
+        assert second.register_shortcut("ctrl+alt+f23", "other")
+    finally:
+        first.unregister_shortcuts()
+        second.unregister_shortcuts()
+
+
+@pytest.mark.parametrize("sequence, expected", [("ctrl+alt+q", (0x4003, 81)), ("ctrl+alt+F8", (0x4003, 0x77)), ("Ctrl+Shift+Space", (0x4006, 32))])
+def test_windows_hotkey_mapping(sequence, expected):
+    from py_crow_tool.services.desktop import _windows_hotkey
+    assert _windows_hotkey(sequence) == expected
+
+
+def test_windows_hotkey_rejects_invalid_sequence():
+    from py_crow_tool.services.desktop import _windows_hotkey
+    with pytest.raises(ValueError):
+        _windows_hotkey("not-a-key")
 
 
 def test_simulate_copy_returns_false_when_keyboard_module_is_missing(monkeypatch, capsys):
@@ -31,6 +65,7 @@ def test_simulate_copy_returns_false_when_keyboard_module_is_missing(monkeypatch
     assert "Could not simulate" in capsys.readouterr().err
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX mode bits are not supported on Windows")
 def test_credential_file_is_private_checks_permissions_on_posix(tmp_path):
     path = tmp_path / "creds.json"
     path.write_text("{}")

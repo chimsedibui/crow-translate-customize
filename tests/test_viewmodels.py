@@ -1,4 +1,5 @@
 import time
+import asyncio
 
 from py_crow_tool.config import AppSettings, SettingsStore
 from py_crow_tool.core.models import TranslationResult
@@ -31,6 +32,15 @@ class FakeProvider:
 
     async def close(self):
         pass
+
+
+def _stop_runner(runner):
+    async def drain():
+        pending = [task for task in asyncio.all_tasks() if task is not asyncio.current_task()]
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+    runner.run_sync(drain(), timeout=2)
+    runner.stop()
 
 
 def _pump_until(qapp, predicate, timeout=2.0):
@@ -74,7 +84,7 @@ def test_translate_updates_translated_text_status_and_history(qapp, tmp_path):
         assert vm.status == "fake"
         assert len(vm.history) == 1
     finally:
-        runner.stop()
+        _stop_runner(runner)
 
 
 def test_translate_is_a_noop_while_already_busy_or_for_blank_text(qapp, tmp_path):
@@ -93,7 +103,7 @@ def test_translate_is_a_noop_while_already_busy_or_for_blank_text(qapp, tmp_path
         _wait_for_translate(qapp, vm, history)
         assert provider.calls == 1
     finally:
-        runner.stop()
+        _stop_runner(runner)
 
 
 def test_swap_languages_uses_detected_language_when_source_is_auto(qapp, tmp_path):
@@ -118,7 +128,7 @@ def test_swap_languages_uses_detected_language_when_source_is_auto(qapp, tmp_pat
         assert vm.translatedText == "hello"
         assert vm.detectedSourceLanguage == ""
     finally:
-        runner.stop()
+        _stop_runner(runner)
 
 
 def test_swap_languages_does_nothing_without_a_resolved_source(qapp, tmp_path):
@@ -134,7 +144,7 @@ def test_swap_languages_does_nothing_without_a_resolved_source(qapp, tmp_path):
         assert vm.sourceLanguage == "auto"
         assert vm.sourceText == "hello"
     finally:
-        runner.stop()
+        _stop_runner(runner)
 
 
 def test_clear_all_resets_both_fields(qapp, tmp_path):
@@ -150,7 +160,7 @@ def test_clear_all_resets_both_fields(qapp, tmp_path):
         assert vm.sourceText == ""
         assert vm.translatedText == ""
     finally:
-        runner.stop()
+        _stop_runner(runner)
 
 
 def test_save_preferences_replaces_provider_and_closes_the_old_one(qapp, tmp_path):
@@ -172,7 +182,7 @@ def test_save_preferences_replaces_provider_and_closes_the_old_one(qapp, tmp_pat
         # stopping it, or the settings coroutine can be torn down mid-flight.
         assert _pump_until(qapp, lambda: closed["value"] and settings_path.exists())
     finally:
-        runner.stop()
+        _stop_runner(runner)
 
 
 def test_settings_view_model_save_dispatches_to_loop_runner(qapp, tmp_path):
@@ -192,4 +202,83 @@ def test_settings_view_model_save_dispatches_to_loop_runner(qapp, tmp_path):
         assert _pump_until(qapp, lambda: store.path.exists())
         assert store.load().start_with_system is True
     finally:
-        runner.stop()
+        _stop_runner(runner)
+
+
+def test_latest_input_is_translated_after_inflight_request(qapp, tmp_path):
+    import asyncio
+
+    class SlowProvider(FakeProvider):
+        async def translate(self, request):
+            await asyncio.sleep(0.06)
+            return await super().translate(request)
+
+    runner = AsyncLoopRunner()
+    try:
+        provider = SlowProvider()
+        vm, history = _make_vm(qapp, tmp_path, runner, provider)
+        vm._settings.auto_translate = True
+        seen = []
+        vm.translatedTextChanged.connect(lambda: seen.append(vm.translatedText))
+        vm.sourceText = "old"
+        vm.translate()
+        vm.sourceText = "latest"
+        vm.translate()
+        _wait_for_translate(qapp, vm, history)
+        assert seen == ["latest-translated"]
+        assert provider.calls == 2
+        assert [item["source"] for item in vm.history] == ["latest"]
+    finally:
+        _stop_runner(runner)
+
+
+def test_clear_during_request_does_not_restore_old_result(qapp, tmp_path):
+    class SlowProvider(FakeProvider):
+        async def translate(self, request):
+            await asyncio.sleep(0.06)
+            return await super().translate(request)
+
+    runner = AsyncLoopRunner()
+    try:
+        vm, _ = _make_vm(qapp, tmp_path, runner, SlowProvider())
+        vm.sourceText = "old"
+        vm.translate()
+        vm.clearAll()
+        assert _pump_until(qapp, lambda: not vm.busy)
+        assert vm.translatedText == ""
+        assert vm.history == []
+    finally:
+        _stop_runner(runner)
+
+
+def test_stale_failure_does_not_hide_latest_translation(qapp, tmp_path):
+    class FailingFirstProvider(FakeProvider):
+        async def translate(self, request):
+            if request.text == "old":
+                raise RuntimeError("Old request failed")
+            return await super().translate(request)
+
+    runner = AsyncLoopRunner()
+    try:
+        vm, history = _make_vm(qapp, tmp_path, runner, FailingFirstProvider())
+        vm.sourceText = "old"
+        vm.translate()
+        vm.sourceText = "new"
+        vm.translate()
+        _wait_for_translate(qapp, vm, history)
+        assert vm.translatedText == "new-translated"
+        assert vm.error == ""
+    finally:
+        _stop_runner(runner)
+
+
+def test_report_ocr_error_preserves_source(qapp, tmp_path):
+    runner = AsyncLoopRunner()
+    try:
+        vm, _ = _make_vm(qapp, tmp_path, runner)
+        vm.sourceText = "Keep this text"
+        vm.reportError("No clipboard image")
+        assert vm.sourceText == "Keep this text"
+        assert vm.error == "No clipboard image"
+    finally:
+        _stop_runner(runner)

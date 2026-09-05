@@ -4,20 +4,36 @@ import sys
 import os
 from importlib.resources import files
 
-from PySide6.QtCore import QTimer, QUrl
+from PySide6.QtCore import QMimeData, QObject, QTimer, QUrl, Qt, Slot
 from PySide6.QtGui import QAction, QCursor, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtWidgets import QApplication, QMenu, QStyle, QSystemTrayIcon
+from PySide6.QtQuickControls2 import QQuickStyle
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from py_crow_tool.bootstrap import build_services
 from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, SingleInstance, TtsService
 from py_crow_tool.viewmodels import SettingsViewModel, TranslationViewModel
 
 
+class _ShortcutDispatcher(QObject):
+    """Give keyboard callbacks an explicit receiver on the Qt GUI thread."""
+
+    def __init__(self, callback, parent):
+        super().__init__(parent)
+        self._callback = callback
+
+    @Slot(str)
+    def dispatch(self, action: str) -> None:
+        self._callback(action)
+
+
 def main() -> int:
+    QQuickStyle.setStyle("Basic")
     app = QApplication(sys.argv)
     app.setApplicationName("PyCrow Tool")
     app.setOrganizationName("CrowTranslate")
+    app_icon = QIcon(str(files("py_crow_tool") / "qml" / "app-icon.png"))
+    app.setWindowIcon(app_icon)
     app.setQuitOnLastWindowClosed(False)
 
     instance = SingleInstance(os.getenv("PY_CROW_INSTANCE_NAME", "io.crow_translate.PyCrowTool"))
@@ -58,10 +74,7 @@ def main() -> int:
 
     desktop.set_startup_enabled(settings.start_with_system)
 
-    tray_icon = QIcon.fromTheme("accessories-dictionary")
-    if tray_icon.isNull():
-        tray_icon = app.style().standardIcon(QStyle.StandardPixmap.SP_FileDialogInfoView)
-    tray = QSystemTrayIcon(tray_icon, app)
+    tray = QSystemTrayIcon(app_icon, app)
     tray.setToolTip("PyCrow Tool")
     menu = QMenu()
     show_action = QAction("Show", menu)
@@ -83,19 +96,35 @@ def main() -> int:
     if not (clipboard_hotkey_ok and quick_hotkey_ok):
         tray.showMessage(
             "PyCrow Tool",
-            "Global hotkeys are unavailable. Install the optional 'keyboard' package "
-            '(pip install -e ".[windows]") and, on Linux, run with permission to read input devices.',
+            "A global hotkey could not be registered. It may already be used by another app. "
+            "Check the console error and change the hotkey in Settings. "
+            "On Linux, also check the keyboard package and input-device permissions.",
             QSystemTrayIcon.MessageIcon.Warning,
             6000,
         )
 
+    active_shortcuts = ((settings.clipboard_hotkey, "translate-clipboard"),
+                        (settings.quick_translate_hotkey, "quick-translate"))
+
+    def _recording_changed() -> None:
+        if settings_vm.recordingHotkey:
+            desktop.unregister_shortcuts()
+        else:
+            for sequence, action in active_shortcuts:
+                desktop.register_shortcut(sequence, action)
+
+    settings_vm.recordingHotkeyChanged.connect(_recording_changed)
+
     def _on_shortcut(action: str) -> None:
+        if settings_vm.recordingHotkey:
+            return
         if action == "translate-clipboard":
             _translate_clipboard(app, translation_vm, window)
         elif action == "quick-translate":
             _quick_translate_selection(app, desktop, quick_vm, quick_popup, tray)
 
-    desktop.shortcutTriggered.connect(_on_shortcut)
+    shortcut_dispatcher = _ShortcutDispatcher(_on_shortcut, app)
+    desktop.shortcutTriggered.connect(shortcut_dispatcher.dispatch, Qt.ConnectionType.QueuedConnection)
     settings_vm.saved.connect(lambda: desktop.set_startup_enabled(settings.start_with_system))
 
     def _shutdown() -> None:
@@ -113,46 +142,58 @@ def main() -> int:
 def _quick_translate_selection(
     app: QApplication, desktop: DesktopServices, model: TranslationViewModel, popup, tray: QSystemTrayIcon | None = None
 ) -> None:
-    if popup is None:
+    if popup is None or desktop.selection_capture_pending:
         return
+    desktop.selection_capture_pending = True
     clipboard = app.clipboard()
-    previous_text = clipboard.text()
-    clipboard.clear()
-    if not desktop.simulate_copy():
-        if previous_text:
-            clipboard.setText(previous_text)
-        if tray:
-            tray.showMessage(
-                "PyCrow Tool",
-                "Could not copy the selection. Install the optional 'keyboard' package to use this hotkey.",
-                QSystemTrayIcon.MessageIcon.Warning,
-                5000,
-            )
-        return
+    previous_data = None
 
-    # Ctrl+C is delivered to whatever app owned the selection, and the target
-    # app updates the clipboard on its own schedule (slower under remote
-    # desktop, X11 clipboard managers, etc.), so poll for a change instead of
-    # trusting a single fixed delay to be long enough.
-    remaining_attempts = [20]  # ~20 * 40ms = 800ms ceiling
+    def _finish(message: str | None = None) -> None:
+        if previous_data is not None:
+            clipboard.setMimeData(previous_data)
+        desktop.selection_capture_pending = False
+        if message and tray is not None:
+            tray.showMessage("PyCrow Tool", message, QSystemTrayIcon.MessageIcon.Warning, 5000)
 
-    def _poll() -> None:
+    def _poll(attempts: int = 25) -> None:
         selected = clipboard.text().strip()
         if selected:
-            if previous_text:
-                clipboard.setText(previous_text)
-            popup.popAt(*_popup_position(QCursor.pos(), popup))
+            _finish()
             model.sourceText = selected
+            popup.popAt(*_popup_position(QCursor.pos(), popup))
             model.translate()
+        elif attempts <= 1:
+            _finish("No text was copied. Select text in the foreground application and try again.")
+        else:
+            QTimer.singleShot(40, lambda: _poll(attempts - 1))
+
+    def _copy_when_released(attempts: int = 100) -> None:
+        nonlocal previous_data
+        if not desktop.copy_modifiers_released():
+            if attempts <= 1:
+                _finish("Release the hotkey keys, then try again.")
+            else:
+                QTimer.singleShot(30, lambda: _copy_when_released(attempts - 1))
             return
-        remaining_attempts[0] -= 1
-        if remaining_attempts[0] <= 0:
-            if previous_text:
-                clipboard.setText(previous_text)
+        # Snapshot all clipboard formats before copying. Serialize captures so
+        # another hotkey cannot read a previous capture's restored clipboard.
+        previous_data = QMimeData()
+        current = clipboard.mimeData()
+        if current is not None:
+            for format_name in current.formats():
+                previous_data.setData(format_name, current.data(format_name))
+        clipboard.clear()
+        # Windows can temporarily refuse clipboard access. Never interpret the
+        # old clipboard as a successfully copied selection if clearing failed.
+        if clipboard.text():
+            _finish("Clipboard is busy. Please try again.")
+            return
+        if not desktop.simulate_copy():
+            _finish("Could not copy the selection. Check that the keyboard package is installed.")
             return
         QTimer.singleShot(40, _poll)
 
-    QTimer.singleShot(40, _poll)
+    _copy_when_released()
 
 
 def _popup_position(cursor, popup) -> tuple[int, int]:

@@ -14,6 +14,13 @@ Window {
     visible: false
 
     property bool closeArmed: false
+    property bool pinned: false
+    property string notice: ""
+    function languageName(code) {
+        for (let item of quickTranslateModel.languages) if (item.code === code) return item.name
+        return code
+    }
+    Timer { id: copyTimer; interval: 2000; onTriggered: popup.notice = "" }
 
     function popAt(x, y) {
         popup.x = x
@@ -30,7 +37,7 @@ Window {
     // instant it appears, so only start reacting to deactivation once it has
     // had a moment to actually gain focus.
     Timer { id: closeArmDelay; interval: 250; onTriggered: popup.closeArmed = true }
-    onActiveChanged: if (!active && closeArmed) popup.close()
+    onActiveChanged: if (!active && closeArmed && !pinned) popup.close()
 
     Rectangle {
         anchors.fill: parent
@@ -50,18 +57,20 @@ Window {
             RowLayout {
                 Layout.fillWidth: true
                 Label {
-                    text: quickTranslateModel.detectedSourceLanguage
-                        ? "Auto (" + quickTranslateModel.detectedSourceLanguage + ") → " + quickTranslateModel.targetLanguage
-                        : quickTranslateModel.sourceLanguage + " → " + quickTranslateModel.targetLanguage
+                    text: popup.languageName(quickTranslateModel.detectedSourceLanguage || quickTranslateModel.sourceLanguage) + " → " + popup.languageName(quickTranslateModel.targetLanguage)
                     color: "#6b7480"
                     font.pixelSize: 11
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                 }
-                ToolButton { text: "⎘"; ToolTip.text: "Copy translation"; ToolTip.visible: hovered; onClicked: { quickTranslateModel.copyTranslated() } }
-                ToolButton { text: "✕"; onClicked: popup.close() }
+                ActionButton { symbol: "pin"; primary: popup.pinned; ToolTip.text: popup.pinned ? "Unpin popup" : "Keep popup open"; onClicked: popup.pinned = !popup.pinned }
+                ActionButton { symbol: "copy"; enabled: quickTranslateModel.translatedText.length > 0; ToolTip.text: "Copy translation"; onClicked: { quickTranslateModel.copyTranslated(); popup.notice = "Copied to clipboard"; copyTimer.restart() } }
+                ActionButton { symbol: "close"; ToolTip.text: "Close popup"; onClicked: popup.close() }
             }
 
+            Label { visible: quickTranslateModel.busy || popup.notice.length > 0; text: popup.notice || "Translating…"; color: "#0d897e" }
+            Label { Layout.fillWidth: true; visible: quickTranslateModel.error.length > 0; text: quickTranslateModel.error; color: "#a03927"; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight }
+            ActionButton { visible: quickTranslateModel.error.length > 0; text: "Retry"; enabled: !quickTranslateModel.busy; onClicked: quickTranslateModel.translate() }
             ScrollView {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
@@ -70,7 +79,11 @@ Window {
                     readOnly: true
                     wrapMode: TextEdit.Wrap
                     font.pixelSize: 14
-                    text: quickTranslateModel.busy ? "Translating..." : quickTranslateModel.translatedText
+                    color: "#182b3a"
+                    placeholderTextColor: "#637587"
+                    background: Item {}
+                    text: quickTranslateModel.translatedText
+                    placeholderText: quickTranslateModel.busy ? "Translating…" : "Translation"
                     selectByMouse: true
                 }
             }

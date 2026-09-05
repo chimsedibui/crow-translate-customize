@@ -22,6 +22,7 @@ exe = EXE(
     a.datas,
     [],
     name="PyCrowTool",
+    icon="src/py_crow_tool/qml/app-icon.png",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

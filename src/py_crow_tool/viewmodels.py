@@ -3,7 +3,8 @@ from __future__ import annotations
 import asyncio
 from dataclasses import asdict
 
-from PySide6.QtCore import Property, QObject, Signal, Slot
+from PySide6.QtCore import Property, QObject, Signal, Slot, Qt, QKeyCombination
+from PySide6.QtGui import QKeySequence
 
 from py_crow_tool.config import AppSettings, SettingsStore
 from py_crow_tool.core.languages import LANGUAGES
@@ -24,7 +25,8 @@ class TranslationViewModel(QObject):
     historyChanged = Signal()
     detectedSourceLanguageChanged = Signal()
     _resultReady = Signal(object, object)
-    _errorReady = Signal(str)
+    errorChanged = Signal()
+    _errorReady = Signal(str, object)
 
     def __init__(
         self,
@@ -46,6 +48,9 @@ class TranslationViewModel(QObject):
         self._source_language = settings.source_language
         self._target_language = settings.target_language
         self._busy = False
+        self._revision = 0
+        self._pending = False
+        self._error = ""
         self._detected_source_language = ""
         self._status = self._provider_status()
         self._resultReady.connect(self._apply_result)
@@ -63,6 +68,7 @@ class TranslationViewModel(QObject):
     @sourceText.setter
     def sourceText(self, value):
         if value != self._source_text:
+            self._input_changed()
             self._source_text = value
             self.sourceTextChanged.emit()
 
@@ -75,6 +81,7 @@ class TranslationViewModel(QObject):
     @sourceLanguage.setter
     def sourceLanguage(self, value):
         if value != self._source_language:
+            self._input_changed()
             self._source_language = value
             self._settings.source_language = value
             self.sourceLanguageChanged.emit()
@@ -85,6 +92,7 @@ class TranslationViewModel(QObject):
     @targetLanguage.setter
     def targetLanguage(self, value):
         if value != self._target_language:
+            self._input_changed()
             self._target_language = value
             self._settings.target_language = value
             self.targetLanguageChanged.emit()
@@ -106,38 +114,72 @@ class TranslationViewModel(QObject):
     def history(self):
         return [asdict(item) for item in self._history.load()]
 
+    @Property(str, notify=errorChanged)
+    def error(self): return self._error
+
+    @Slot(str)
+    def reportError(self, message):
+        self._error = message
+        self.errorChanged.emit()
+
+    def _input_changed(self):
+        self._revision += 1
+        if self._translated_text:
+            self._set_status("Text changed — translate to update")
+        self.reportError("")
+        if self._busy and self._settings.auto_translate:
+            self._pending = True
+        if self._detected_source_language:
+            self._detected_source_language = ""
+            self.detectedSourceLanguageChanged.emit()
+
     @Slot()
     def translate(self):
         text = self._source_text.strip()
-        if not text or self._busy:
+        if not text:
             return
+        if self._busy:
+            self._pending = True
+            return
+        self._pending = False
+        self.reportError("")
         self._set_busy(True)
-        self._set_status("Translating...")
+        self._set_status("Translating…")
         request = TranslationRequest(text, self._target_language, self._source_language)
+        revision = self._revision
         future = self._loop_runner.submit(self._manager.translate(request))
-        future.add_done_callback(lambda done: self._translation_done(done, request))
+        future.add_done_callback(lambda done: self._translation_done(done, (request, revision)))
 
-    def _translation_done(self, future, request):
+    def _translation_done(self, future, context):
         try:
             result = future.result()
         except Exception as error:
-            self._errorReady.emit(str(error))
+            self._errorReady.emit(str(error), context)
         else:
-            self._resultReady.emit(result, request)
+            self._resultReady.emit(result, context)
+
+    def _finish_request(self, revision):
+        self._set_busy(False)
+        pending = self._pending and revision != self._revision
+        self._pending = False
+        if pending:
+            self.translate()
 
     @Slot(object, object)
-    def _apply_result(self, result, request):
-        self._translated_text = result.translated_text
-        self.translatedTextChanged.emit()
-        self._set_status(result.provider_id)
-        detected = result.source_language if request.source_language == "auto" else ""
-        if detected != self._detected_source_language:
-            self._detected_source_language = detected
+    def _apply_result(self, result, context):
+        request, revision = context
+        if revision == self._revision:
+            self._translated_text = result.translated_text
+            self.translatedTextChanged.emit()
+            self._set_status(result.provider_id)
+            self._detected_source_language = result.source_language if request.source_language == "auto" else ""
             self.detectedSourceLanguageChanged.emit()
-        self._history.add(request.text, result.translated_text, result.source_language, result.target_language, result.provider_id)
-        self.historyChanged.emit()
-        self._loop_runner.submit(asyncio.to_thread(self._history.flush))
-        self._set_busy(False)
+            self._history.add(request.text, result.translated_text, result.source_language, result.target_language, result.provider_id)
+            self.historyChanged.emit()
+            self._loop_runner.submit(asyncio.to_thread(self._history.flush))
+        else:
+            self._set_status("Text changed — translate to update")
+        self._finish_request(revision)
 
     @Slot()
     def clearSource(self):
@@ -146,6 +188,8 @@ class TranslationViewModel(QObject):
     @Slot()
     def clearAll(self):
         self.sourceText = ""
+        self._pending = False
+        self.reportError("")
         if self._translated_text:
             self._translated_text = ""
             self.translatedTextChanged.emit()
@@ -172,10 +216,23 @@ class TranslationViewModel(QObject):
         if text:
             self.sourceText = text
 
-    @Slot(str)
-    def _apply_error(self, message):
-        self._set_status(message)
-        self._set_busy(False)
+    @Slot(str, object)
+    def _apply_error(self, message, context):
+        _, revision = context
+        if revision == self._revision:
+            self.reportError(message)
+            self._set_status("Translation failed")
+        self._finish_request(revision)
+
+    @Slot(str, str, str, str)
+    def restoreHistory(self, source, translation, source_language, target_language):
+        self.sourceLanguage = source_language
+        self.targetLanguage = target_language
+        self.sourceText = source
+        self._translated_text = translation
+        self.translatedTextChanged.emit()
+        self._pending = False
+        self._set_status("Restored from history")
 
     @Slot()
     def swapLanguages(self):
@@ -214,12 +271,44 @@ class TranslationViewModel(QObject):
 class SettingsViewModel(QObject):
     saved = Signal()
     settingsChanged = Signal()
+    recordingHotkeyChanged = Signal()
 
     def __init__(self, settings: AppSettings, store: SettingsStore, loop_runner: AsyncLoopRunner | None = None, parent=None):
         super().__init__(parent)
         self.settings = settings
         self.store = store
         self._loop_runner = loop_runner
+        self._recording_hotkey = False
+
+    @Property(bool, notify=recordingHotkeyChanged)
+    def recordingHotkey(self): return self._recording_hotkey
+
+    @recordingHotkey.setter
+    def recordingHotkey(self, value):
+        if value != self._recording_hotkey:
+            self._recording_hotkey = value
+            self.recordingHotkeyChanged.emit()
+
+    @Slot(int, int, result=str)
+    def captureHotkey(self, key, modifiers):
+        from py_crow_tool.services.desktop import _windows_hotkey
+
+        allowed = Qt.ControlModifier | Qt.AltModifier | Qt.ShiftModifier | Qt.MetaModifier
+        mods = Qt.KeyboardModifier(modifiers) & allowed
+        # Plain typing keys must remain available to other applications.
+        if not mods and not Qt.Key_F1 <= key <= Qt.Key_F24:
+            return ""
+        sequence = QKeySequence(QKeyCombination(mods, Qt.Key(key)))
+        text = sequence.toString(QKeySequence.PortableText)
+        try:
+            _windows_hotkey(text)
+        except ValueError:
+            return ""
+        return text
+
+    @Slot(str, result=bool)
+    def hotkeyConflicts(self, sequence):
+        return QKeySequence(sequence) == QKeySequence(self.settings.clipboard_hotkey)
 
     @Property(str, notify=settingsChanged)
     def apiKey(self): return self.settings.google_v2.api_key

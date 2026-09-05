@@ -20,7 +20,7 @@ class GoogleV2Settings:
 class AppSettings:
     version: int = 1
     source_language: str = "auto"
-    target_language: str = "en"
+    target_language: str = "vi"
     auto_translate: bool = False
     history_limit: int = 100
     tesseract_command: str = ""
@@ -61,7 +61,7 @@ class SettingsStore:
         return AppSettings(
             version=int(data.get("version", 1)),
             source_language=str(data.get("source_language", "auto")),
-            target_language=str(data.get("target_language", "en")),
+            target_language=str(data.get("target_language", "vi")),
             auto_translate=bool(data.get("auto_translate", False)),
             history_limit=max(0, int(data.get("history_limit", 100))),
             tesseract_command=str(data.get("tesseract_command", "")),
