@@ -346,6 +346,52 @@ class SettingsViewModel(QObject):
             self.settings.quick_translate_hotkey = value
             self.settingsChanged.emit()
 
+    @Property(str, notify=settingsChanged)
+    def screenshotHotkey(self): return self.settings.screenshot_hotkey
+
+    @screenshotHotkey.setter
+    def screenshotHotkey(self, value):
+        if value != self.settings.screenshot_hotkey:
+            self.settings.screenshot_hotkey = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def openaiApiKey(self): return self.settings.openai.api_key
+
+    @openaiApiKey.setter
+    def openaiApiKey(self, value):
+        if value != self.settings.openai.api_key:
+            self.settings.openai.api_key = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def ocrEngine(self): return self.settings.ocr_engine
+
+    @ocrEngine.setter
+    def ocrEngine(self, value):
+        if value != self.settings.ocr_engine:
+            self.settings.ocr_engine = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def ocrLanguage(self): return self.settings.ocr_language
+
+    @ocrLanguage.setter
+    def ocrLanguage(self, value):
+        if value != self.settings.ocr_language:
+            self.settings.ocr_language = value
+            self.settingsChanged.emit()
+
+    @Property(int, notify=settingsChanged)
+    def ocrResizeResolution(self): return self.settings.openai.ocr_resize_resolution
+
+    @ocrResizeResolution.setter
+    def ocrResizeResolution(self, value):
+        value = max(256, int(value))
+        if value != self.settings.openai.ocr_resize_resolution:
+            self.settings.openai.ocr_resize_resolution = value
+            self.settingsChanged.emit()
+
     @Slot()
     def save(self):
         if self._loop_runner is not None:

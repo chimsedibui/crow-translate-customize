@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from py_crow_tool.bootstrap import build_services
 from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, SingleInstance, TtsService
+from py_crow_tool.services.capture import CaptureController, ScreenshotImageProvider
 from py_crow_tool.viewmodels import SettingsViewModel, TranslationViewModel
 
 
@@ -46,7 +47,7 @@ def main() -> int:
     translation_vm = TranslationViewModel(manager, settings, store, history, loop_runner)
     settings_vm = SettingsViewModel(settings, store, loop_runner)
     tts = TtsService()
-    ocr = OcrService(settings.tesseract_command, loop_runner)
+    ocr = OcrService(settings, loop_runner)
     desktop = DesktopServices()
 
     engine = QQmlApplicationEngine()
@@ -72,6 +73,37 @@ def main() -> int:
     quick_engine.load(QUrl.fromLocalFile(str(quick_qml)))
     quick_popup = quick_engine.rootObjects()[0] if quick_engine.rootObjects() else None
 
+    screenshot_image_provider = ScreenshotImageProvider()
+    capture_controller = CaptureController(screenshot_image_provider)
+    capture_engine = QQmlApplicationEngine()
+    capture_engine.addImageProvider("capture", screenshot_image_provider)
+    capture_engine.rootContext().setContextProperty("captureController", capture_controller)
+    capture_qml = files("py_crow_tool") / "qml" / "CaptureOverlay.qml"
+    capture_engine.load(QUrl.fromLocalFile(str(capture_qml)))
+    capture_overlay = capture_engine.rootObjects()[0] if capture_engine.rootObjects() else None
+
+    def _on_region_captured(data: bytes) -> None:
+        desktop.selection_capture_pending = False
+        quick_vm.sourceText = ""
+        quick_popup.popAt(*_popup_position(QCursor.pos(), quick_popup))
+        ocr.recognizeImageBytes(data)
+
+    def _on_region_cancelled() -> None:
+        desktop.selection_capture_pending = False
+
+    def _on_region_recognized(text: str) -> None:
+        if not text.strip():
+            quick_vm.reportError("No text found in the selected area")
+            return
+        quick_vm.sourceText = text
+        quick_vm.translate()
+
+    if quick_popup is not None and capture_overlay is not None:
+        capture_controller.regionCaptured.connect(_on_region_captured)
+        capture_controller.cancelled.connect(_on_region_cancelled)
+        ocr.regionRecognized.connect(_on_region_recognized)
+        ocr.regionFailed.connect(lambda message: quick_vm.reportError(message))
+
     desktop.set_startup_enabled(settings.start_with_system)
 
     tray = QSystemTrayIcon(app_icon, app)
@@ -93,7 +125,8 @@ def main() -> int:
 
     clipboard_hotkey_ok = desktop.register_shortcut(settings.clipboard_hotkey, "translate-clipboard")
     quick_hotkey_ok = desktop.register_shortcut(settings.quick_translate_hotkey, "quick-translate")
-    if not (clipboard_hotkey_ok and quick_hotkey_ok):
+    screenshot_hotkey_ok = desktop.register_shortcut(settings.screenshot_hotkey, "capture-screenshot")
+    if not (clipboard_hotkey_ok and quick_hotkey_ok and screenshot_hotkey_ok):
         tray.showMessage(
             "PyCrow Tool",
             "A global hotkey could not be registered. It may already be used by another app. "
@@ -104,7 +137,8 @@ def main() -> int:
         )
 
     active_shortcuts = ((settings.clipboard_hotkey, "translate-clipboard"),
-                        (settings.quick_translate_hotkey, "quick-translate"))
+                        (settings.quick_translate_hotkey, "quick-translate"),
+                        (settings.screenshot_hotkey, "capture-screenshot"))
 
     def _recording_changed() -> None:
         if settings_vm.recordingHotkey:
@@ -122,6 +156,8 @@ def main() -> int:
             _translate_clipboard(app, translation_vm, window)
         elif action == "quick-translate":
             _quick_translate_selection(app, desktop, quick_vm, quick_popup, tray)
+        elif action == "capture-screenshot":
+            _capture_screenshot(desktop, capture_controller, capture_overlay, tray)
 
     shortcut_dispatcher = _ShortcutDispatcher(_on_shortcut, app)
     desktop.shortcutTriggered.connect(shortcut_dispatcher.dispatch, Qt.ConnectionType.QueuedConnection)
@@ -131,6 +167,10 @@ def main() -> int:
         tts.stop()
         try:
             loop_runner.run_sync(manager.close(), timeout=3)
+        except Exception:
+            pass
+        try:
+            loop_runner.run_sync(ocr.close(), timeout=3)
         except Exception:
             pass
         loop_runner.stop()
@@ -194,6 +234,26 @@ def _quick_translate_selection(
         QTimer.singleShot(40, _poll)
 
     _copy_when_released()
+
+
+def _capture_screenshot(
+    desktop: DesktopServices, capture: CaptureController, overlay, tray: QSystemTrayIcon | None = None
+) -> None:
+    if overlay is None or desktop.selection_capture_pending:
+        return
+    desktop.selection_capture_pending = True
+    geometry = capture.capture_screen_at_cursor()
+    if geometry is None:
+        desktop.selection_capture_pending = False
+        if tray is not None:
+            tray.showMessage("PyCrow Tool", "Could not capture the screen.", QSystemTrayIcon.MessageIcon.Warning, 5000)
+        return
+    overlay.setProperty("x", geometry.x())
+    overlay.setProperty("y", geometry.y())
+    overlay.setProperty("width", geometry.width())
+    overlay.setProperty("height", geometry.height())
+    overlay.show()
+    overlay.requestActivate()
 
 
 def _popup_position(cursor, popup) -> tuple[int, int]:

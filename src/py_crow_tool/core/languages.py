@@ -32,3 +32,12 @@ def normalize_language(code: str) -> str:
     aliases = {"zh": "zh-CN", "zh-cn": "zh-CN", "zh-tw": "zh-TW", "iw": "he"}
     return aliases.get(value.lower(), value.lower())
 
+
+_DISPLAY_NAMES = dict(LANGUAGES)
+
+
+def language_display_name(code: str) -> str:
+    """English name for a language code (e.g. "vi" -> "Vietnamese"), for prompts aimed at a
+    human-language model rather than a code-driven API. Falls back to the code itself."""
+    return _DISPLAY_NAMES.get(normalize_language(code), code)
+

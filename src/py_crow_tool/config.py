@@ -17,6 +17,18 @@ class GoogleV2Settings:
 
 
 @dataclass(slots=True)
+class OpenAiSettings:
+    api_key: str = ""
+    ocr_model: str = "gpt-5-nano"
+    # Longest side (px) an image is downscaled to before it's sent for OCR. Lower values cut
+    # OpenAI vision token cost (billed per 512px tile) and upload latency, but can blur small
+    # print past legibility -- see research/ benchmark notes on the "100g" -> "200g" misread.
+    ocr_resize_resolution: int = 1280
+    ocr_image_format: str = "png"
+    ocr_jpeg_quality: int = 87
+
+
+@dataclass(slots=True)
 class AppSettings:
     version: int = 1
     source_language: str = "auto"
@@ -27,12 +39,20 @@ class AppSettings:
     start_with_system: bool = False
     clipboard_hotkey: str = "ctrl+alt+t"
     quick_translate_hotkey: str = "ctrl+alt+q"
+    screenshot_hotkey: str = "ctrl+alt+r"
+    ocr_engine: str = "tesseract"
+    ocr_language: str = "auto"
     google_v2: GoogleV2Settings = field(default_factory=GoogleV2Settings)
+    openai: OpenAiSettings = field(default_factory=OpenAiSettings)
     enabled_plugins: list[str] = field(default_factory=list)
 
     @property
     def v2_api_key(self) -> str:
         return os.getenv("PY_CROW_GOOGLE_API_KEY", self.google_v2.api_key)
+
+    @property
+    def openai_api_key(self) -> str:
+        return os.getenv("PY_CROW_OPENAI_API_KEY", self.openai.api_key)
 
 
 class SettingsStore:
@@ -68,7 +88,11 @@ class SettingsStore:
             start_with_system=bool(data.get("start_with_system", False)),
             clipboard_hotkey=str(data.get("clipboard_hotkey", "ctrl+alt+t")),
             quick_translate_hotkey=str(data.get("quick_translate_hotkey", "ctrl+alt+q")),
+            screenshot_hotkey=str(data.get("screenshot_hotkey", "ctrl+alt+r")),
+            ocr_engine=str(data.get("ocr_engine", "tesseract")),
+            ocr_language=str(data.get("ocr_language", "auto")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
+            openai=OpenAiSettings(**data.get("openai", {})),
             enabled_plugins=list(data.get("enabled_plugins", [])),
         )
 

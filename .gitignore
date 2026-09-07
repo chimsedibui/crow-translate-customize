@@ -6,3 +6,5 @@ build/
 dist/
 *.egg-info/
 installer/Output/
+key.txt
+*.env

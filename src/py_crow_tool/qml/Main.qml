@@ -248,12 +248,25 @@ ApplicationWindow {
             ActionButton { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
             ActionButton { text: "Save changes"; primary: true; enabled: !hotkey.recording; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
         }
-        onOpened: { showKey.checked = false; apiKey.text = settingsModel.apiKey; startup.checked = settingsModel.startWithSystem; hotkey.sequence = settingsModel.quickTranslateHotkey; hotkey.error = "" }
+        onOpened: {
+            showKey.checked = false; apiKey.text = settingsModel.apiKey; startup.checked = settingsModel.startWithSystem
+            hotkey.sequence = settingsModel.quickTranslateHotkey; hotkey.error = ""
+            showOpenaiKey.checked = false; openaiKey.text = settingsModel.openaiApiKey
+            ocrEngine.currentIndex = ocrEngine.indexOfValue(settingsModel.ocrEngine)
+            ocrLanguage.currentIndex = translationModel.languages.findIndex(item => item.code === settingsModel.ocrLanguage)
+            resizeResolution.value = settingsModel.ocrResizeResolution
+            screenshotHotkey.text = settingsModel.screenshotHotkey
+        }
         onClosed: hotkey.recording = false
         onAccepted: {
             settingsModel.apiKey = apiKey.text.trim()
             settingsModel.startWithSystem = startup.checked
             settingsModel.quickTranslateHotkey = hotkey.sequence
+            settingsModel.openaiApiKey = openaiKey.text.trim()
+            settingsModel.ocrEngine = ocrEngine.currentValue
+            settingsModel.ocrLanguage = ocrLanguage.currentValue
+            settingsModel.ocrResizeResolution = resizeResolution.value
+            settingsModel.screenshotHotkey = screenshotHotkey.text.trim()
             settingsModel.save(); translationModel.savePreferences()
         }
         ScrollView {
@@ -267,6 +280,36 @@ ApplicationWindow {
                 CheckBox { id: showKey; text: "Show key"; checked: false }
                 Label { text: "Desktop"; font.bold: true; font.pixelSize: 16; Layout.topMargin: 8 }
                 CheckBox { id: startup; objectName: "startup"; text: "Start with system" }
+                Label { text: "OCR"; font.bold: true; font.pixelSize: 16; Layout.topMargin: 8 }
+                Label { text: "Engine" }
+                ComboBox {
+                    id: ocrEngine; objectName: "ocrEngine"; Layout.fillWidth: true
+                    textRole: "text"; valueRole: "value"
+                    model: [
+                        { text: "Tesseract (local, CPU)", value: "tesseract" },
+                        { text: "OpenAI Vision (cloud API)", value: "openai-vision" }
+                    ]
+                    Accessible.name: "OCR engine"
+                }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
+                    text: "OpenAI Vision sends the captured image to OpenAI's API and needs a key below. Tesseract runs fully offline." }
+                Label { text: "OpenAI API key" }
+                SettingsField { id: openaiKey; objectName: "openaiKey"; Layout.fillWidth: true; placeholderText: "Enter your OpenAI API key"; echoMode: showOpenaiKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "OpenAI API key" }
+                CheckBox { id: showOpenaiKey; text: "Show key"; checked: false }
+                Label { text: "OCR language" }
+                LanguagePicker { id: ocrLanguage; objectName: "ocrLanguage"; model: translationModel.languages; Accessible.name: "OCR language" }
+                Label { text: "Resize resolution (longest side, px)" }
+                SpinBox {
+                    id: resizeResolution; objectName: "resizeResolution"; Layout.fillWidth: true
+                    from: 256; to: 4096; stepSize: 64; editable: true
+                    Accessible.name: "OCR image resize resolution in pixels"
+                }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
+                    text: "Only used by OpenAI Vision. Images larger than this are downscaled before upload to reduce cost and latency; too low can blur small text." }
+                Label { text: "Screenshot shortcut" }
+                SettingsField { id: screenshotHotkey; objectName: "screenshotHotkey"; Layout.fillWidth: true; placeholderText: "e.g. ctrl+alt+r"; Accessible.name: "Screenshot shortcut" }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
+                    text: "Drag-select a screen area, read its text with OCR, and translate it in the quick-translate popup. Type a combination like ctrl+alt+r; changes apply after restarting PyCrow." }
                 Label { text: "Quick-translate shortcut" }
                 ActionButton {
                     id: hotkey; objectName: "hotkey"; Layout.fillWidth: true
