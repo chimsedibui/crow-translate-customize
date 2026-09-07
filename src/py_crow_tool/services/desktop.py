@@ -105,7 +105,10 @@ class DesktopServices(QObject):
         key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE) as key:
             if enabled:
-                command = f'"{sys.executable}" -m py_crow_tool.app'
+                if getattr(sys, "frozen", False):
+                    command = f'"{sys.executable}"'
+                else:
+                    command = f'"{sys.executable}" -m py_crow_tool.app'
                 winreg.SetValueEx(key, "PyCrowTool", 0, winreg.REG_SZ, command)
             else:
                 try:

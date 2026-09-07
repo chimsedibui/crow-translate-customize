@@ -100,34 +100,60 @@ Release checklist:
 - [ ] Clipboard OCR works with the documented Tesseract installation.
 - [ ] TTS, tray actions, global hotkeys, and single-instance behavior work.
 - [ ] The application starts without network access and shows a useful configuration state.
+- [ ] The installer (`installer/Output/PyCrowTool-Setup.exe`) installs without an admin prompt, adds Start Menu / desktop shortcuts, and shows up in Add/Remove Programs.
+- [ ] "Start with system" in Settings launches the installed exe correctly (not a raw `python -m` command) after reboot.
+- [ ] Uninstalling from Add/Remove Programs removes the app and stops the tray process.
 
-## 8. Sign the release
+## 8. Build the installer
 
-Sign the executable with an organization-owned certificate:
+`dist/PyCrowTool.exe` is a portable executable — running it directly never registers the app as "installed" (no Start Menu entry, no entry in Add/Remove Programs). To produce a real installer, use the [Inno Setup](https://jrsoftware.org/isinfo.php) script in `installer/PyCrowTool.iss`:
+
+```powershell
+winget install JRSoftware.InnoSetup
+.\scripts\build-installer.ps1
+```
+
+This builds the app (via `build-windows.ps1`) and then compiles `installer/PyCrowTool.iss` with `ISCC.exe`, producing `installer/Output/PyCrowTool-Setup.exe`. The installer:
+
+- installs per-user under `%LocalAppData%\Programs\PyCrow Tool` (no admin/UAC prompt required);
+- creates Start Menu shortcuts and an optional desktop shortcut;
+- registers a normal uninstaller in Add/Remove Programs;
+- closes a running instance before overwriting its executable.
+
+Bump `MyAppVersion` in `installer/PyCrowTool.iss` (and `pyproject.toml`) together for each release.
+
+## 9. Sign the release
+
+Sign `dist\PyCrowTool.exe` with an organization-owned certificate *before* building the installer (step 8), so the installer packs an already-signed exe. Then sign the installer output itself:
 
 ```powershell
 signtool sign /a /fd SHA256 /td SHA256 `
   /tr http://timestamp.digicert.com `
   .\dist\PyCrowTool.exe
+.\scripts\build-installer.ps1
+signtool sign /a /fd SHA256 /td SHA256 `
+  /tr http://timestamp.digicert.com `
+  .\installer\Output\PyCrowTool-Setup.exe
 ```
 
-Verify it:
+Verify:
 
 ```powershell
 Get-AuthenticodeSignature .\dist\PyCrowTool.exe
+Get-AuthenticodeSignature .\installer\Output\PyCrowTool-Setup.exe
 ```
 
 Keep certificates and passwords outside the repository and CI logs.
 
-## 9. Publish
+## 10. Publish
 
 Generate a checksum:
 
 ```powershell
-Get-FileHash .\dist\PyCrowTool.exe -Algorithm SHA256
+Get-FileHash .\installer\Output\PyCrowTool-Setup.exe -Algorithm SHA256
 ```
 
-Publish the signed executable with:
+Publish the signed installer with:
 
 - the SHA-256 checksum;
 - supported Windows versions;
