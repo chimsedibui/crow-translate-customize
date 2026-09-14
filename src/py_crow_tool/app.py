@@ -80,7 +80,7 @@ def main() -> int:
     capture_engine.rootContext().setContextProperty("captureController", capture_controller)
     capture_qml = files("py_crow_tool") / "qml" / "CaptureOverlay.qml"
     capture_engine.load(QUrl.fromLocalFile(str(capture_qml)))
-    capture_overlay = capture_engine.rootObjects()[0] if capture_engine.rootObjects() else None
+    capture_root = capture_engine.rootObjects()[0] if capture_engine.rootObjects() else None
 
     def _on_region_captured(data: bytes) -> None:
         desktop.selection_capture_pending = False
@@ -98,7 +98,7 @@ def main() -> int:
         quick_vm.sourceText = text
         quick_vm.translate()
 
-    if quick_popup is not None and capture_overlay is not None:
+    if quick_popup is not None and capture_root is not None:
         capture_controller.regionCaptured.connect(_on_region_captured)
         capture_controller.cancelled.connect(_on_region_cancelled)
         ocr.regionRecognized.connect(_on_region_recognized)
@@ -157,7 +157,7 @@ def main() -> int:
         elif action == "quick-translate":
             _quick_translate_selection(app, desktop, quick_vm, quick_popup, tray)
         elif action == "capture-screenshot":
-            _capture_screenshot(desktop, capture_controller, capture_overlay, tray)
+            _capture_screenshot(desktop, capture_controller, tray)
 
     shortcut_dispatcher = _ShortcutDispatcher(_on_shortcut, app)
     desktop.shortcutTriggered.connect(shortcut_dispatcher.dispatch, Qt.ConnectionType.QueuedConnection)
@@ -237,23 +237,15 @@ def _quick_translate_selection(
 
 
 def _capture_screenshot(
-    desktop: DesktopServices, capture: CaptureController, overlay, tray: QSystemTrayIcon | None = None
+    desktop: DesktopServices, capture: CaptureController, tray: QSystemTrayIcon | None = None
 ) -> None:
-    if overlay is None or desktop.selection_capture_pending:
+    if desktop.selection_capture_pending:
         return
     desktop.selection_capture_pending = True
-    geometry = capture.capture_screen_at_cursor()
-    if geometry is None:
+    if not capture.capture_all_screens():
         desktop.selection_capture_pending = False
         if tray is not None:
             tray.showMessage("PyCrow Tool", "Could not capture the screen.", QSystemTrayIcon.MessageIcon.Warning, 5000)
-        return
-    overlay.setProperty("x", geometry.x())
-    overlay.setProperty("y", geometry.y())
-    overlay.setProperty("width", geometry.width())
-    overlay.setProperty("height", geometry.height())
-    overlay.show()
-    overlay.requestActivate()
 
 
 def _popup_position(cursor, popup) -> tuple[int, int]:
