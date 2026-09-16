@@ -306,9 +306,17 @@ class SettingsViewModel(QObject):
             return ""
         return text
 
-    @Slot(str, result=bool)
-    def hotkeyConflicts(self, sequence):
-        return QKeySequence(sequence) == QKeySequence(self.settings.clipboard_hotkey)
+    @Slot(str, str, result=bool)
+    def hotkeyConflicts(self, sequence, excluding=""):
+        candidates = {
+            "quick-translate": self.settings.quick_translate_hotkey,
+            "screenshot": self.settings.screenshot_hotkey,
+        }
+        candidates.pop(excluding, None)
+        wanted = QKeySequence(sequence)
+        if wanted == QKeySequence(self.settings.clipboard_hotkey):
+            return True
+        return any(wanted == QKeySequence(other) for other in candidates.values())
 
     @Property(str, notify=settingsChanged)
     def apiKey(self): return self.settings.google_v2.api_key

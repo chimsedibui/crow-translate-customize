@@ -246,7 +246,7 @@ ApplicationWindow {
             padding: 16; spacing: 8
             background: Item {}
             ActionButton { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
-            ActionButton { text: "Save changes"; primary: true; enabled: !hotkey.recording; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
+            ActionButton { text: "Save changes"; primary: true; enabled: !hotkey.recording && !screenshotHotkey.recording; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
         }
         onOpened: {
             showKey.checked = false; apiKey.text = settingsModel.apiKey; startup.checked = settingsModel.startWithSystem
@@ -255,9 +255,9 @@ ApplicationWindow {
             ocrEngine.currentIndex = ocrEngine.indexOfValue(settingsModel.ocrEngine)
             ocrLanguage.currentIndex = translationModel.languages.findIndex(item => item.code === settingsModel.ocrLanguage)
             resizeResolution.value = settingsModel.ocrResizeResolution
-            screenshotHotkey.text = settingsModel.screenshotHotkey
+            screenshotHotkey.sequence = settingsModel.screenshotHotkey; screenshotHotkey.error = ""
         }
-        onClosed: hotkey.recording = false
+        onClosed: { hotkey.recording = false; screenshotHotkey.recording = false }
         onAccepted: {
             settingsModel.apiKey = apiKey.text.trim()
             settingsModel.startWithSystem = startup.checked
@@ -266,7 +266,7 @@ ApplicationWindow {
             settingsModel.ocrEngine = ocrEngine.currentValue
             settingsModel.ocrLanguage = ocrLanguage.currentValue
             settingsModel.ocrResizeResolution = resizeResolution.value
-            settingsModel.screenshotHotkey = screenshotHotkey.text.trim()
+            settingsModel.screenshotHotkey = screenshotHotkey.sequence
             settingsModel.save(); translationModel.savePreferences()
         }
         ScrollView {
@@ -307,19 +307,15 @@ ApplicationWindow {
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
                     text: "Only used by OpenAI Vision. Images larger than this are downscaled before upload to reduce cost and latency; too low can blur small text." }
                 Label { text: "Screenshot shortcut" }
-                SettingsField { id: screenshotHotkey; objectName: "screenshotHotkey"; Layout.fillWidth: true; placeholderText: "e.g. ctrl+alt+r"; Accessible.name: "Screenshot shortcut" }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
-                    text: "Drag-select a screen area, read its text with OCR, and translate it in the quick-translate popup. Type a combination like ctrl+alt+r; changes apply after restarting PyCrow." }
-                Label { text: "Quick-translate shortcut" }
                 ActionButton {
-                    id: hotkey; objectName: "hotkey"; Layout.fillWidth: true
+                    id: screenshotHotkey; objectName: "screenshotHotkey"; Layout.fillWidth: true
                     property string sequence: ""
                     property bool recording: false
                     property string error: ""
                     text: recording ? "Press a shortcut… (Esc to cancel)" : sequence + "  ·  Click to change"
-                    Accessible.name: "Quick translate shortcut. " + text
+                    Accessible.name: "Screenshot shortcut. " + text
                     onClicked: { error = ""; recording = true; forceActiveFocus() }
-                    onRecordingChanged: settingsModel.recordingHotkey = recording
+                    onRecordingChanged: settingsModel.recordingHotkey = recording || hotkey.recording
                     onActiveFocusChanged: { if (!activeFocus) recording = false }
                     Keys.priority: Keys.BeforeItem
                     Keys.onShortcutOverride: function(event) { if (recording) event.accepted = true }
@@ -334,8 +330,45 @@ ApplicationWindow {
                             error = "Use Ctrl, Alt, Shift or Win with a letter, number or navigation key, or use F1–F24."
                             return
                         }
-                        if (settingsModel.hotkeyConflicts(captured)) {
-                            error = "This shortcut is already used for clipboard translation. Choose another."
+                        if (settingsModel.hotkeyConflicts(captured, "screenshot")) {
+                            error = "This shortcut is already in use. Choose another."
+                            return
+                        }
+                        sequence = captured
+                        error = ""
+                        recording = false
+                    }
+                    Keys.onReleased: function(event) { event.accepted = true }
+                }
+                Label { Layout.fillWidth: true; visible: screenshotHotkey.error.length > 0; text: screenshotHotkey.error; wrapMode: Text.Wrap; color: "#b42318" }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
+                    text: "Drag-select a screen area, read its text with OCR, and translate it in the quick-translate popup. Changes apply after restarting PyCrow." }
+                Label { text: "Quick-translate shortcut" }
+                ActionButton {
+                    id: hotkey; objectName: "hotkey"; Layout.fillWidth: true
+                    property string sequence: ""
+                    property bool recording: false
+                    property string error: ""
+                    text: recording ? "Press a shortcut… (Esc to cancel)" : sequence + "  ·  Click to change"
+                    Accessible.name: "Quick translate shortcut. " + text
+                    onClicked: { error = ""; recording = true; forceActiveFocus() }
+                    onRecordingChanged: settingsModel.recordingHotkey = recording || screenshotHotkey.recording
+                    onActiveFocusChanged: { if (!activeFocus) recording = false }
+                    Keys.priority: Keys.BeforeItem
+                    Keys.onShortcutOverride: function(event) { if (recording) event.accepted = true }
+                    Keys.onPressed: function(event) {
+                        if (!recording) return
+                        event.accepted = true
+                        if (event.isAutoRepeat) return
+                        if (event.key === Qt.Key_Escape) { recording = false; error = ""; return }
+                        if ([Qt.Key_Control, Qt.Key_Alt, Qt.Key_Shift, Qt.Key_Meta].indexOf(event.key) !== -1) return
+                        let captured = settingsModel.captureHotkey(event.key, event.modifiers)
+                        if (!captured) {
+                            error = "Use Ctrl, Alt, Shift or Win with a letter, number or navigation key, or use F1–F24."
+                            return
+                        }
+                        if (settingsModel.hotkeyConflicts(captured, "quick-translate")) {
+                            error = "This shortcut is already in use. Choose another."
                             return
                         }
                         sequence = captured
