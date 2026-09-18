@@ -373,15 +373,6 @@ class SettingsViewModel(QObject):
             self.settingsChanged.emit()
 
     @Property(str, notify=settingsChanged)
-    def ocrEngine(self): return self.settings.ocr_engine
-
-    @ocrEngine.setter
-    def ocrEngine(self, value):
-        if value != self.settings.ocr_engine:
-            self.settings.ocr_engine = value
-            self.settingsChanged.emit()
-
-    @Property(str, notify=settingsChanged)
     def ocrLanguage(self): return self.settings.ocr_language
 
     @ocrLanguage.setter

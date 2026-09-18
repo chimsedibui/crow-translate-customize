@@ -53,7 +53,7 @@ The sections below cover setup, configuration, packaging, and internals for peop
 ## Requirements
 
 - Python 3.11 or newer.
-- Tesseract OCR for image recognition.
+- An OpenAI API key for OCR (screenshot text recognition).
 - A Google Cloud Translation API key.
 - Windows optional dependencies (the `windows` extra) for global hotkeys.
 
@@ -161,7 +161,7 @@ Plugins execute with the same permissions as the application. Install only trust
 
 ## Windows packaging and deployment
 
-Cutting a signed `PyCrowTool.exe` release (PyInstaller build, Tesseract bundling policy, code signing, publishing checklist, and packaging troubleshooting) is documented separately in [docs/WINDOWS_PACKAGING.md](docs/WINDOWS_PACKAGING.md) — reach for it only when preparing a release, not for regular development.
+Cutting a signed `PyCrowTool.exe` release (PyInstaller build, code signing, publishing checklist, and packaging troubleshooting) is documented separately in [docs/WINDOWS_PACKAGING.md](docs/WINDOWS_PACKAGING.md) — reach for it only when preparing a release, not for regular development.
 
 ## Known limitations
 

@@ -8,7 +8,6 @@ Install on 64-bit Windows 10 or Windows 11:
 
 - Python 3.11 from python.org, including the `py` launcher;
 - Git for Windows;
-- Tesseract OCR when OCR is required;
 - Microsoft Visual C++ Redistributable;
 - Windows SDK `signtool` when signing releases.
 
@@ -17,7 +16,6 @@ Verify the tools in PowerShell:
 ```powershell
 py -3.11 --version
 git --version
-tesseract --version
 ```
 
 ## 2. Prepare the source
@@ -65,16 +63,7 @@ Remove-Item -Recurse -Force .\build, .\dist -ErrorAction SilentlyContinue
 .\scripts\build-windows.ps1
 ```
 
-## 5. Tesseract deployment
-
-The current PyInstaller specification does not bundle Tesseract. Choose one deployment policy:
-
-1. Require users to install Tesseract and add it to `PATH`.
-2. Install Tesseract beside the application and configure its executable path in PyCrow settings.
-
-Document the selected policy in release notes. Verify the OCR language data needed by your users is installed.
-
-## 6. Configure Google Cloud
+## 5. Configure Google Cloud
 
 Do not embed API keys in `PyCrowTool.exe`.
 
@@ -86,7 +75,7 @@ For managed deployments, configure the API key per user or machine:
 
 Environment variables avoid packaging secrets but are not a general-purpose secret vault. Restrict the Google API key to the minimum required permissions and quotas.
 
-## 7. Verify on a clean machine
+## 6. Verify on a clean machine
 
 Test `dist/PyCrowTool.exe` on a clean Windows VM that does not have the development virtual environment.
 
@@ -97,14 +86,14 @@ Release checklist:
 - [ ] Google v2 works with an API key.
 - [ ] Translation errors do not expose credentials.
 - [ ] CLI behavior is tested separately from the GUI artifact when a CLI package is distributed.
-- [ ] Clipboard OCR works with the documented Tesseract installation.
+- [ ] Clipboard and screenshot OCR work with a configured OpenAI API key.
 - [ ] TTS, tray actions, global hotkeys, and single-instance behavior work.
 - [ ] The application starts without network access and shows a useful configuration state.
 - [ ] The installer (`installer/Output/PyCrowTool-Setup.exe`) installs without an admin prompt, adds Start Menu / desktop shortcuts, and shows up in Add/Remove Programs.
 - [ ] "Start with system" in Settings launches the installed exe correctly (not a raw `python -m` command) after reboot.
 - [ ] Uninstalling from Add/Remove Programs removes the app and stops the tray process.
 
-## 8. Build the installer
+## 7. Build the installer
 
 `dist/PyCrowTool.exe` is a portable executable — running it directly never registers the app as "installed" (no Start Menu entry, no entry in Add/Remove Programs). To produce a real installer, use the [Inno Setup](https://jrsoftware.org/isinfo.php) script in `installer/PyCrowTool.iss`:
 
@@ -122,9 +111,9 @@ This builds the app (via `build-windows.ps1`) and then compiles `installer/PyCro
 
 Bump `MyAppVersion` in `installer/PyCrowTool.iss` (and `pyproject.toml`) together for each release.
 
-## 9. Sign the release
+## 8. Sign the release
 
-Sign `dist\PyCrowTool.exe` with an organization-owned certificate *before* building the installer (step 8), so the installer packs an already-signed exe. Then sign the installer output itself:
+Sign `dist\PyCrowTool.exe` with an organization-owned certificate *before* building the installer (step 7), so the installer packs an already-signed exe. Then sign the installer output itself:
 
 ```powershell
 signtool sign /a /fd SHA256 /td SHA256 `
@@ -145,7 +134,7 @@ Get-AuthenticodeSignature .\installer\Output\PyCrowTool-Setup.exe
 
 Keep certificates and passwords outside the repository and CI logs.
 
-## 10. Publish
+## 9. Publish
 
 Generate a checksum:
 
@@ -157,8 +146,7 @@ Publish the signed installer with:
 
 - the SHA-256 checksum;
 - supported Windows versions;
-- Tesseract installation instructions;
-- Google credential instructions;
+- OpenAI and Google credential instructions;
 - known limitations and upgrade notes.
 
 ## Troubleshooting
@@ -167,7 +155,7 @@ Publish the signed installer with:
 
 **PyInstaller cannot find QML files** — Build through `pycrow.spec`. It uses `collect_data_files("py_crow_tool")` and the wheel configuration includes `src/py_crow_tool/qml`.
 
-**OCR reports that Tesseract is missing** — Install Tesseract, add it to `PATH`, or configure the full executable path in application settings.
+**OCR fails or returns nothing** — Confirm an OpenAI API key is entered in Settings and that the machine has network access to `api.openai.com`.
 
 **Windows blocks the executable** — Sign the release and distribute it from a trusted HTTPS location. New certificates may still build reputation gradually with Microsoft SmartScreen.
 

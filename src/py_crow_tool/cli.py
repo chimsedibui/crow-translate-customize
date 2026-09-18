@@ -18,7 +18,6 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--stdin", action="store_true", help="Read source text from stdin")
     result.add_argument("--ocr", type=Path, help="Recognize text from an image before translating")
     result.add_argument("--ocr-language", default=None, help="Language hint for OCR (e.g. vi, en); defaults to the configured OCR language")
-    result.add_argument("--ocr-engine", choices=["tesseract", "openai-vision"], default=None, help="Override the configured OCR engine")
     result.add_argument("-s", "--source", default="auto", help="Source language code")
     result.add_argument("-t", "--target", default="en", help="Target language code")
     result.add_argument("-p", "--provider", help="Override automatic provider selection (e.g. google-v2, or a plugin's provider id)")
@@ -32,7 +31,7 @@ async def run(args: argparse.Namespace) -> int:
     ocr_service = OcrService(settings) if args.ocr else None
     try:
         if args.ocr:
-            text = await ocr_service.recognize_file(str(args.ocr), language=args.ocr_language, engine=args.ocr_engine)
+            text = await ocr_service.recognize_file(str(args.ocr), language=args.ocr_language)
         elif args.file:
             text = args.file.read_text(encoding="utf-8")
         elif args.stdin:

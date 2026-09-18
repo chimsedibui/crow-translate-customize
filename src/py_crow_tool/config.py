@@ -35,12 +35,10 @@ class AppSettings:
     target_language: str = "vi"
     auto_translate: bool = False
     history_limit: int = 100
-    tesseract_command: str = ""
     start_with_system: bool = False
     clipboard_hotkey: str = "ctrl+alt+t"
     quick_translate_hotkey: str = "ctrl+alt+q"
     screenshot_hotkey: str = "ctrl+alt+r"
-    ocr_engine: str = "tesseract"
     ocr_language: str = "auto"
     google_v2: GoogleV2Settings = field(default_factory=GoogleV2Settings)
     openai: OpenAiSettings = field(default_factory=OpenAiSettings)
@@ -84,12 +82,10 @@ class SettingsStore:
             target_language=str(data.get("target_language", "vi")),
             auto_translate=bool(data.get("auto_translate", False)),
             history_limit=max(0, int(data.get("history_limit", 100))),
-            tesseract_command=str(data.get("tesseract_command", "")),
             start_with_system=bool(data.get("start_with_system", False)),
             clipboard_hotkey=str(data.get("clipboard_hotkey", "ctrl+alt+t")),
             quick_translate_hotkey=str(data.get("quick_translate_hotkey", "ctrl+alt+q")),
             screenshot_hotkey=str(data.get("screenshot_hotkey", "ctrl+alt+r")),
-            ocr_engine=str(data.get("ocr_engine", "tesseract")),
             ocr_language=str(data.get("ocr_language", "auto")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
             openai=OpenAiSettings(**data.get("openai", {})),

@@ -162,6 +162,7 @@ def main() -> int:
     shortcut_dispatcher = _ShortcutDispatcher(_on_shortcut, app)
     desktop.shortcutTriggered.connect(shortcut_dispatcher.dispatch, Qt.ConnectionType.QueuedConnection)
     settings_vm.saved.connect(lambda: desktop.set_startup_enabled(settings.start_with_system))
+    settings_vm.saved.connect(ocr.apply_settings)
 
     def _shutdown() -> None:
         tts.stop()

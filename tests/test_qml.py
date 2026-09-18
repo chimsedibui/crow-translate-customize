@@ -113,7 +113,7 @@ def test_hotkey_rejects_typing_and_conflicts_then_saves(ui, qapp):
     assert hotkey.property("recording")
     assert hotkey.property("error")
     QTest.keyClick(window, Qt.Key_T, Qt.ControlModifier | Qt.AltModifier)
-    assert "clipboard" in hotkey.property("error")
+    assert "already in use" in hotkey.property("error")
     assert hotkey.property("sequence") == "ctrl+alt+q"
     QTest.keyClick(window, Qt.Key_F8)
     assert hotkey.property("sequence") == "F8"

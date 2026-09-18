@@ -9,7 +9,6 @@ from PySide6.QtGui import QGuiApplication
 from py_crow_tool.config import AppSettings
 from py_crow_tool.core.ocr_models import OcrException, OcrRequest
 from py_crow_tool.providers.openai_ocr import OpenAiOcrProvider
-from py_crow_tool.providers.tesseract_ocr import TesseractOcrProvider
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 
 
@@ -27,7 +26,6 @@ class OcrService(QObject):
         super().__init__(parent)
         self._settings = settings
         self._loop_runner = loop_runner
-        self._tesseract = TesseractOcrProvider(settings.tesseract_command)
         self._openai = OpenAiOcrProvider(
             settings.openai_api_key,
             model=settings.openai.ocr_model,
@@ -41,11 +39,14 @@ class OcrService(QObject):
         self._latest_clipboard_request_id: str | None = None
         self._latest_region_request_id: str | None = None
 
-    def _active_provider(self, engine: str | None = None):
-        selected = engine or self._settings.ocr_engine
-        if selected == self._openai.id and self._openai.configured:
-            return self._openai
-        return self._tesseract
+    def apply_settings(self) -> None:
+        """Re-read OCR settings the provider was constructed with, so a key or option
+        entered in Settings takes effect immediately instead of only after a restart."""
+        self._openai.api_key = self._settings.openai_api_key.strip()
+        self._openai.model = self._settings.openai.ocr_model
+        self._openai.max_dimension = self._settings.openai.ocr_resize_resolution
+        self._openai.image_format = self._settings.openai.ocr_image_format
+        self._openai.jpeg_quality = self._settings.openai.ocr_jpeg_quality
 
     def _language_hint(self, language: str | None = None) -> str | None:
         return language or self._settings.ocr_language
@@ -86,9 +87,9 @@ class OcrService(QObject):
             if request_id == self._latest_clipboard_request_id:
                 self.failed.emit(message)
 
-        self._submit(request, self._active_provider(), _ok, _err)
+        self._submit(request, self._openai, _ok, _err)
 
-    def recognizeImageBytes(self, data: bytes, language: str | None = None, engine: str | None = None) -> None:
+    def recognizeImageBytes(self, data: bytes, language: str | None = None) -> None:
         """Screenshot-region counterpart to recognizeClipboardImage(): same async/stale-result
         handling, but for an in-memory crop (e.g. from CaptureController) instead of the
         clipboard, and reporting through regionRecognized/regionFailed instead."""
@@ -103,20 +104,19 @@ class OcrService(QObject):
             if request_id == self._latest_region_request_id:
                 self.regionFailed.emit(message)
 
-        self._submit(request, self._active_provider(engine), _ok, _err)
+        self._submit(request, self._openai, _ok, _err)
 
     def cancel_current(self) -> None:
         for request_id in (self._latest_clipboard_request_id, self._latest_region_request_id):
             if request_id is None:
                 continue
-            self._tesseract.cancel(request_id)
             self._openai.cancel(request_id)
 
-    async def recognize_file(self, path: str, language: str | None = None, engine: str | None = None) -> str:
+    async def recognize_file(self, path: str, language: str | None = None) -> str:
         with open(path, "rb") as stream:
             data = stream.read()
         request = OcrRequest(image=data, language_hint=self._language_hint(language))
-        result = await self._active_provider(engine).recognize(request)
+        result = await self._openai.recognize(request)
         return result.text
 
     async def close(self) -> None:

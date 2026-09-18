@@ -252,7 +252,6 @@ ApplicationWindow {
             showKey.checked = false; apiKey.text = settingsModel.apiKey; startup.checked = settingsModel.startWithSystem
             hotkey.sequence = settingsModel.quickTranslateHotkey; hotkey.error = ""
             showOpenaiKey.checked = false; openaiKey.text = settingsModel.openaiApiKey
-            ocrEngine.currentIndex = ocrEngine.indexOfValue(settingsModel.ocrEngine)
             ocrLanguage.currentIndex = translationModel.languages.findIndex(item => item.code === settingsModel.ocrLanguage)
             resizeResolution.value = settingsModel.ocrResizeResolution
             screenshotHotkey.sequence = settingsModel.screenshotHotkey; screenshotHotkey.error = ""
@@ -263,7 +262,6 @@ ApplicationWindow {
             settingsModel.startWithSystem = startup.checked
             settingsModel.quickTranslateHotkey = hotkey.sequence
             settingsModel.openaiApiKey = openaiKey.text.trim()
-            settingsModel.ocrEngine = ocrEngine.currentValue
             settingsModel.ocrLanguage = ocrLanguage.currentValue
             settingsModel.ocrResizeResolution = resizeResolution.value
             settingsModel.screenshotHotkey = screenshotHotkey.sequence
@@ -281,18 +279,8 @@ ApplicationWindow {
                 Label { text: "Desktop"; font.bold: true; font.pixelSize: 16; Layout.topMargin: 8 }
                 CheckBox { id: startup; objectName: "startup"; text: "Start with system" }
                 Label { text: "OCR"; font.bold: true; font.pixelSize: 16; Layout.topMargin: 8 }
-                Label { text: "Engine" }
-                ComboBox {
-                    id: ocrEngine; objectName: "ocrEngine"; Layout.fillWidth: true
-                    textRole: "text"; valueRole: "value"
-                    model: [
-                        { text: "Tesseract (local, CPU)", value: "tesseract" },
-                        { text: "OpenAI Vision (cloud API)", value: "openai-vision" }
-                    ]
-                    Accessible.name: "OCR engine"
-                }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
-                    text: "OpenAI Vision sends the captured image to OpenAI's API and needs a key below. Tesseract runs fully offline." }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"
+                    text: "OCR reads text from a screenshot by sending the image to OpenAI's Vision API. Enter an API key below to enable it." }
                 Label { text: "OpenAI API key" }
                 SettingsField { id: openaiKey; objectName: "openaiKey"; Layout.fillWidth: true; placeholderText: "Enter your OpenAI API key"; echoMode: showOpenaiKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "OpenAI API key" }
                 CheckBox { id: showOpenaiKey; text: "Show key"; checked: false }
@@ -305,7 +293,7 @@ ApplicationWindow {
                     Accessible.name: "OCR image resize resolution in pixels"
                 }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
-                    text: "Only used by OpenAI Vision. Images larger than this are downscaled before upload to reduce cost and latency; too low can blur small text." }
+                    text: "Images larger than this are downscaled before upload to reduce cost and latency; too low can blur small text." }
                 Label { text: "Screenshot shortcut" }
                 ActionButton {
                     id: screenshotHotkey; objectName: "screenshotHotkey"; Layout.fillWidth: true

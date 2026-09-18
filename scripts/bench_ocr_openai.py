@@ -6,7 +6,7 @@ Usage:
     export PY_CROW_OPENAI_API_KEY=sk-...
     python scripts/bench_ocr_openai.py --images-dir data/bench_images --runs 3
 
-Same image/ground-truth layout as scripts/bench_ocr_tesseract.py:
+Image/ground-truth layout:
     images/<group>/<name>.png  (+ optional <name>.txt ground truth, same stem)
 Group names are informational only here (OpenAI needs no per-language model), but are
 still used as an optional --language-hint per group via --group-language-hint.
