@@ -13,8 +13,8 @@ Button {
     icon.source: symbol ? "icons/" + symbol + ".svg" : ""
     icon.width: 16
     icon.height: 16
-    icon.color: !enabled ? Theme.inkDisabled : primary ? Theme.inkInverse : Theme.muted
-    palette.buttonText: !enabled ? Theme.inkDisabled : primary ? Theme.inkInverse : Theme.ink
+    icon.color: !enabled ? Theme.inkDisabled : primary ? Theme.accentInk : Theme.muted
+    palette.buttonText: !enabled ? Theme.inkDisabled : primary ? Theme.accentInk : Theme.ink
     background: Rectangle {
         radius: Theme.radiusSmall
         color: !control.enabled
@@ -24,6 +24,8 @@ Button {
                 : control.down ? Theme.controlPress : control.hovered ? Theme.controlHover : "transparent"
         border.color: control.activeFocus ? Theme.accent : "transparent"
         border.width: 2
+        Behavior on color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingCurve } }
+        Behavior on border.color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingCurve } }
     }
     Accessible.name: text.length ? text : ToolTip.text
     ToolTip.visible: hovered && ToolTip.text.length > 0

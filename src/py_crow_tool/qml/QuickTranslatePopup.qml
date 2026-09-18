@@ -40,12 +40,24 @@ Window {
     Timer { id: closeArmDelay; interval: 250; onTriggered: popup.closeArmed = true }
     onActiveChanged: if (!active && closeArmed && !pinned) popup.close()
 
+    // The popup is thrown onto the screen over whatever the user was doing, so it
+    // settles in rather than snapping. Kept under 200ms: this is a hotkey tool and
+    // the translation has to feel immediate.
+    onVisibleChanged: if (visible) entrance.restart()
+    ParallelAnimation {
+        id: entrance
+        NumberAnimation { target: card; property: "opacity"; from: 0; to: 1; duration: Theme.durationBase; easing.type: Theme.easingCurve }
+        NumberAnimation { target: cardLift; property: "y"; from: 8; to: 0; duration: Theme.durationBase; easing.type: Theme.easingCurve }
+    }
+
     Rectangle {
+        id: card
         anchors.fill: parent
         radius: Theme.radiusLarge
         color: Theme.raised
         border.color: Theme.hairline
         border.width: 1
+        transform: Translate { id: cardLift }
 
         Keys.onEscapePressed: popup.close()
         focus: true

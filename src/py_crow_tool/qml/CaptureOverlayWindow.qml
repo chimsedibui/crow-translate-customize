@@ -86,7 +86,7 @@ Window {
             color: Theme.overlayChip
             width: hint.implicitWidth + 24
             height: hint.implicitHeight + 12
-            Label { id: hint; anchors.centerIn: parent; text: "Drag to select an area  ·  Esc to cancel"; color: Theme.inkInverse }
+            Label { id: hint; anchors.centerIn: parent; text: "Drag to select an area  ·  Esc to cancel"; color: Theme.overlayInk }
         }
     }
 

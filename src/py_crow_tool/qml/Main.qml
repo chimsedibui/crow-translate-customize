@@ -18,7 +18,7 @@ ApplicationWindow {
     palette.base: Theme.raised
     palette.placeholderText: Theme.placeholder
     palette.highlight: Theme.accent
-    palette.highlightedText: Theme.inkInverse
+    palette.highlightedText: Theme.accentInk
     property bool restoring: false
     property string notice: ""
     function languageName(code) {
@@ -26,6 +26,18 @@ ApplicationWindow {
         return code
     }
     function copied() { notice = "Copied to clipboard"; noticeTimer.restart() }
+    // A pane is headed by the language it actually holds. For the source that is the
+    // detected language once one is known, since "Detect language" stops being true
+    // the moment detection resolves.
+    function sourceLabel() {
+        if (translationModel.detectedSourceLanguage) return root.languageName(translationModel.detectedSourceLanguage)
+        if (translationModel.sourceLanguage === "auto") return "Auto-detect"
+        return root.languageName(translationModel.sourceLanguage)
+    }
+    function sourceCode() {
+        const code = translationModel.detectedSourceLanguage || translationModel.sourceLanguage
+        return code === "auto" ? "AUTO" : code.toUpperCase()
+    }
     function schedule() { if (settingsModel.autoTranslate && !restoring) autoTimer.restart() }
     Timer { id: noticeTimer; interval: 2200; onTriggered: root.notice = "" }
     Timer { id: autoTimer; interval: 600; onTriggered: translationModel.translate() }
@@ -51,6 +63,21 @@ ApplicationWindow {
         background: Rectangle { radius: Theme.radiusSmall; color: Theme.raised; border.color: parent.activeFocus ? Theme.accent : Theme.hairline }
     }
     component Caption: Label { color: Theme.muted; font.pixelSize: Theme.sizeCaption; font.weight: Theme.weightMedium }
+    // The language code is data, so it is set in the mono face. It carries the accent
+    // only when the language was inferred rather than chosen.
+    component LanguageCode: Rectangle {
+        property string code: ""
+        property bool detected: false
+        implicitWidth: codeLabel.implicitWidth + 12
+        implicitHeight: codeLabel.implicitHeight + 6
+        radius: 4
+        color: detected ? Theme.accentSoft : Theme.controlHover
+        Label {
+            id: codeLabel; anchors.centerIn: parent; text: parent.code
+            font.family: Theme.monoFamily; font.pixelSize: Theme.sizeCaption
+            color: parent.detected ? Theme.accentSoftInk : Theme.muted
+        }
+    }
 
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 24; spacing: 18
@@ -104,17 +131,41 @@ ApplicationWindow {
             }
 
         }
-        RowLayout {
-            Layout.fillWidth: true; Layout.fillHeight: true; spacing: 16
+        SplitView {
+            Layout.fillWidth: true; Layout.fillHeight: true
+            orientation: Qt.Horizontal
+            handle: Rectangle {
+                implicitWidth: 16
+                color: "transparent"
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: 3; height: 40; radius: 2
+                    color: SplitHandle.pressed ? Theme.accent : SplitHandle.hovered ? Theme.muted : Theme.hairline
+                    Behavior on color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingCurve } }
+                }
+            }
             Rectangle {
-                Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1
+                SplitView.fillWidth: true
+                SplitView.minimumWidth: 240
                 color: Theme.raised; radius: Theme.radiusLarge; border.color: sourceEditor.activeFocus ? Theme.accent : Theme.hairline
+                Behavior on border.color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingCurve } }
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 16; spacing: 10
                     RowLayout {
-                        Layout.fillWidth: true
-                        Caption { text: "SOURCE TEXT" }
-                        Label { text: translationModel.detectedSourceLanguage ? "Detected: " + root.languageName(translationModel.detectedSourceLanguage) : ""; color: Theme.accent; font.pixelSize: Theme.sizeCaption; Layout.fillWidth: true; elide: Text.ElideRight }
+                        Layout.fillWidth: true; spacing: 8
+                        Label {
+                            text: root.sourceLabel(); color: Theme.ink
+                            font.family: Theme.displayFamily; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightMedium
+                            elide: Text.ElideRight
+                        }
+                        LanguageCode {
+                            code: root.sourceCode()
+                            detected: translationModel.detectedSourceLanguage.length > 0
+                            ToolTip.text: "Detected automatically"
+                            ToolTip.visible: detected && codeHover.hovered
+                            HoverHandler { id: codeHover }
+                        }
+                        Item { Layout.fillWidth: true }
                         ActionButton { symbol: "close"; ToolTip.text: "Clear text and translation"; enabled: translationModel.sourceText.length > 0 || translationModel.translatedText.length > 0; onClicked: translationModel.clearAll() }
                     }
                     ScrollView {
@@ -143,13 +194,19 @@ ApplicationWindow {
                 }
             }
             Rectangle {
-                Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1
+                SplitView.fillWidth: true
+                SplitView.minimumWidth: 240
                 color: Theme.raisedAlt; radius: Theme.radiusLarge; border.color: Theme.hairline
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 16; spacing: 10
                     RowLayout {
-                        Layout.fillWidth: true; Layout.minimumHeight: 36
-                        Caption { text: "TRANSLATION" }
+                        Layout.fillWidth: true; Layout.minimumHeight: 36; spacing: 8
+                        Label {
+                            text: root.languageName(translationModel.targetLanguage); color: Theme.ink
+                            font.family: Theme.displayFamily; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightMedium
+                            elide: Text.ElideRight
+                        }
+                        LanguageCode { code: translationModel.targetLanguage.toUpperCase() }
                         Item { Layout.fillWidth: true }
                         BusyIndicator { visible: translationModel.busy; running: visible; implicitWidth: 24; implicitHeight: 24 }
                         Label { visible: translationModel.busy; text: "Updating…"; color: Theme.accent; font.pixelSize: Theme.sizeCaption }
@@ -176,7 +233,10 @@ ApplicationWindow {
         }
         Rectangle {
             Layout.fillWidth: true; implicitHeight: errorRow.implicitHeight + 20
-            visible: translationModel.error.length > 0; color: Theme.dangerSoft; radius: Theme.radiusSmall
+            opacity: translationModel.error.length > 0 ? 1 : 0
+            visible: opacity > 0
+            Behavior on opacity { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingCurve } }
+            color: Theme.dangerSoft; radius: Theme.radiusSmall
             RowLayout {
                 id: errorRow; anchors.fill: parent; anchors.margins: 10
                 Label { Layout.fillWidth: true; text: translationModel.error; wrapMode: Text.Wrap; color: Theme.danger; maximumLineCount: 3; elide: Text.ElideRight; ToolTip.text: text; ToolTip.visible: errorHover.hovered; HoverHandler { id: errorHover } }
