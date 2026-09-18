@@ -5,7 +5,7 @@ import os
 from importlib.resources import files
 
 from PySide6.QtCore import QMimeData, QObject, QTimer, QUrl, Qt, Slot
-from PySide6.QtGui import QAction, QCursor, QGuiApplication, QIcon
+from PySide6.QtGui import QAction, QCursor, QFont, QGuiApplication, QIcon
 from PySide6.QtQml import QQmlApplicationEngine
 from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
@@ -14,6 +14,29 @@ from py_crow_tool.bootstrap import build_services
 from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, SingleInstance, TtsService
 from py_crow_tool.services.capture import CaptureController, ScreenshotImageProvider
 from py_crow_tool.viewmodels import SettingsViewModel, TranslationViewModel
+
+
+# The app renders 21 languages across six writing systems, so the fallback order is
+# part of the design: without it Qt picks a different face per script and the
+# translation pane stops matching the source pane. QML's font value type has no
+# "families" property, so this can only be expressed here.
+_UI_FONT_FAMILIES = (
+    "Segoe UI Variable Text",  # Windows 11 face cut for UI text sizes
+    "Segoe UI",  # Windows 10 fallback; also covers Cyrillic, Greek and Arabic
+    "Yu Gothic UI",  # Japanese
+    "Microsoft YaHei UI",  # Simplified Chinese
+    "Microsoft JhengHei UI",  # Traditional Chinese
+    "Malgun Gothic",  # Korean
+    "Nirmala UI",  # Devanagari
+    "Leelawadee UI",  # Thai
+)
+
+
+def _apply_app_font(app: QApplication) -> None:
+    font = QFont()
+    font.setFamilies(list(_UI_FONT_FAMILIES))
+    font.setPixelSize(13)
+    app.setFont(font)
 
 
 class _ShortcutDispatcher(QObject):
@@ -36,6 +59,7 @@ def main() -> int:
     app_icon = QIcon(str(files("py_crow_tool") / "qml" / "app-icon.png"))
     app.setWindowIcon(app_icon)
     app.setQuitOnLastWindowClosed(False)
+    _apply_app_font(app)
 
     instance = SingleInstance(os.getenv("PY_CROW_INSTANCE_NAME", "io.crow_translate.PyCrowTool"))
     if not instance.is_primary:

@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import "."
 
 ApplicationWindow {
     id: root
@@ -8,17 +9,16 @@ ApplicationWindow {
     minimumWidth: 720; minimumHeight: 540
     visible: true
     title: "PyCrow Tool"
-    color: "#f3f6f8"
-    font.family: "Sans Serif"
-    font.pixelSize: 13
-    palette.window: "#f3f6f8"
-    palette.text: "#182b3a"
-    palette.windowText: "#182b3a"
-    palette.buttonText: "#182b3a"
-    palette.button: "#edf2f6"
-    palette.base: "white"
-    palette.placeholderText: "#637587"
-    palette.highlight: "#0d897e"
+    color: Theme.surface
+    palette.window: Theme.surface
+    palette.text: Theme.ink
+    palette.windowText: Theme.ink
+    palette.buttonText: Theme.ink
+    palette.button: Theme.controlHover
+    palette.base: Theme.raised
+    palette.placeholderText: Theme.placeholder
+    palette.highlight: Theme.accent
+    palette.highlightedText: Theme.inkInverse
     property bool restoring: false
     property string notice: ""
     function languageName(code) {
@@ -43,14 +43,14 @@ ApplicationWindow {
         Layout.fillWidth: true
         implicitHeight: 40
         textRole: "name"; valueRole: "code"
-        font.pixelSize: 14
-        background: Rectangle { color: "white"; radius: 8; border.color: parent.activeFocus ? "#0d897e" : "#dce4eb" }
+        font.pixelSize: Theme.sizeControl
+        background: Rectangle { color: Theme.raised; radius: Theme.radiusSmall; border.color: parent.activeFocus ? Theme.accent : Theme.hairline }
     }
     component SettingsField: TextField {
         implicitHeight: 40
-        background: Rectangle { radius: 8; color: "white"; border.color: parent.activeFocus ? "#0d897e" : "#dce4eb" }
+        background: Rectangle { radius: Theme.radiusSmall; color: Theme.raised; border.color: parent.activeFocus ? Theme.accent : Theme.hairline }
     }
-    component Caption: Label { color: "#637587"; font.pixelSize: 11; font.weight: Font.DemiBold }
+    component Caption: Label { color: Theme.muted; font.pixelSize: Theme.sizeCaption; font.weight: Theme.weightMedium }
 
     ColumnLayout {
         anchors.fill: parent; anchors.margins: 24; spacing: 18
@@ -66,8 +66,8 @@ ApplicationWindow {
             }
             ColumnLayout {
                 spacing: 1
-                Label { text: "PyCrow"; font.pixelSize: 21; font.bold: true; color: "#182b3a" }
-                Label { text: "A little clarity, in any language."; color: "#637587"; font.pixelSize: 12 }
+                Label { text: "PyCrow"; font.family: Theme.displayFamily; font.pixelSize: Theme.sizeTitle; font.weight: Theme.weightBold; color: Theme.ink }
+                Label { text: "A little clarity, in any language."; color: Theme.muted; font.pixelSize: Theme.sizeCaption }
             }
             Item { Layout.fillWidth: true }
             ActionButton { text: "History"; symbol: "history"; onClicked: historyDrawer.open() }
@@ -76,10 +76,10 @@ ApplicationWindow {
         Rectangle {
             visible: settingsModel.apiKey.length === 0 && translationModel.status.indexOf("Configure") === 0
             Layout.fillWidth: true; implicitHeight: setupRow.implicitHeight + 24
-            color: "#e5f3f0"; radius: 10
+            color: Theme.accentSoft; radius: Theme.radiusSmall
             RowLayout {
                 id: setupRow; anchors.fill: parent; anchors.margins: 12
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: "Welcome! Connect Google Cloud to start translating."; color: "#18675f" }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; text: "Welcome! Connect Google Cloud to start translating."; color: Theme.accentSoftInk }
                 ActionButton { text: "Set up translation"; primary: true; onClicked: settingsDialog.open() }
             }
         }
@@ -108,13 +108,13 @@ ApplicationWindow {
             Layout.fillWidth: true; Layout.fillHeight: true; spacing: 16
             Rectangle {
                 Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1
-                color: "white"; radius: 12; border.color: sourceEditor.activeFocus ? "#6bb8ae" : "#dce4eb"
+                color: Theme.raised; radius: Theme.radiusLarge; border.color: sourceEditor.activeFocus ? Theme.accent : Theme.hairline
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 16; spacing: 10
                     RowLayout {
                         Layout.fillWidth: true
                         Caption { text: "SOURCE TEXT" }
-                        Label { text: translationModel.detectedSourceLanguage ? "Detected: " + root.languageName(translationModel.detectedSourceLanguage) : ""; color: "#0d897e"; font.pixelSize: 11; Layout.fillWidth: true; elide: Text.ElideRight }
+                        Label { text: translationModel.detectedSourceLanguage ? "Detected: " + root.languageName(translationModel.detectedSourceLanguage) : ""; color: Theme.accent; font.pixelSize: Theme.sizeCaption; Layout.fillWidth: true; elide: Text.ElideRight }
                         ActionButton { symbol: "close"; ToolTip.text: "Clear text and translation"; enabled: translationModel.sourceText.length > 0 || translationModel.translatedText.length > 0; onClicked: translationModel.clearAll() }
                     }
                     ScrollView {
@@ -124,9 +124,9 @@ ApplicationWindow {
                             text: translationModel.sourceText
                             onTextChanged: if (activeFocus) translationModel.sourceText = text
                             placeholderText: "Type or paste text here…"
-                            placeholderTextColor: "#8b99a7"
+                            placeholderTextColor: Theme.placeholder
                             wrapMode: TextEdit.Wrap; selectByMouse: true
-                            font.pixelSize: 19; color: "#182b3a"
+                            font.pixelSize: Theme.sizeReading; color: Theme.ink
                             background: Item {}
                             Accessible.name: "Source text"
                         }
@@ -138,13 +138,13 @@ ApplicationWindow {
                         ActionButton { symbol: "speaker"; ToolTip.text: ttsService.speaking ? "Stop speaking" : "Read source aloud"; enabled: translationModel.sourceText.length > 0; onClicked: ttsService.speaking ? ttsService.stop() : ttsService.speak(translationModel.sourceText, translationModel.detectedSourceLanguage || translationModel.sourceLanguage) }
                         ActionButton { symbol: "copy"; ToolTip.text: "Copy source"; enabled: translationModel.sourceText.length > 0; onClicked: { translationModel.copySource(); root.copied() } }
                         Item { Layout.fillWidth: true }
-                        Caption { text: translationModel.sourceText.length + " chars" }
+                        Caption { text: translationModel.sourceText.length + " chars"; font.family: Theme.monoFamily }
                     }
                 }
             }
             Rectangle {
                 Layout.fillWidth: true; Layout.fillHeight: true; Layout.preferredWidth: 1
-                color: "#fafdfe"; radius: 12; border.color: "#dce4eb"
+                color: Theme.raisedAlt; radius: Theme.radiusLarge; border.color: Theme.hairline
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 16; spacing: 10
                     RowLayout {
@@ -152,7 +152,7 @@ ApplicationWindow {
                         Caption { text: "TRANSLATION" }
                         Item { Layout.fillWidth: true }
                         BusyIndicator { visible: translationModel.busy; running: visible; implicitWidth: 24; implicitHeight: 24 }
-                        Label { visible: translationModel.busy; text: "Updating…"; color: "#0d897e"; font.pixelSize: 12 }
+                        Label { visible: translationModel.busy; text: "Updating…"; color: Theme.accent; font.pixelSize: Theme.sizeCaption }
                     }
                     ScrollView {
                         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
@@ -160,8 +160,8 @@ ApplicationWindow {
                             text: translationModel.translatedText
                             readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
                             placeholderText: "Your translation will appear here."
-                            placeholderTextColor: "#8b99a7"
-                            font.pixelSize: 19; color: "#182b3a"; background: Item {}
+                            placeholderTextColor: Theme.placeholder
+                            font.pixelSize: Theme.sizeReading; color: Theme.ink; background: Item {}
                             Accessible.name: "Translation"
                         }
                     }
@@ -176,10 +176,10 @@ ApplicationWindow {
         }
         Rectangle {
             Layout.fillWidth: true; implicitHeight: errorRow.implicitHeight + 20
-            visible: translationModel.error.length > 0; color: "#fff0ec"; radius: 8
+            visible: translationModel.error.length > 0; color: Theme.dangerSoft; radius: Theme.radiusSmall
             RowLayout {
                 id: errorRow; anchors.fill: parent; anchors.margins: 10
-                Label { Layout.fillWidth: true; text: translationModel.error; wrapMode: Text.Wrap; color: "#a03927"; maximumLineCount: 3; elide: Text.ElideRight; ToolTip.text: text; ToolTip.visible: errorHover.hovered; HoverHandler { id: errorHover } }
+                Label { Layout.fillWidth: true; text: translationModel.error; wrapMode: Text.Wrap; color: Theme.danger; maximumLineCount: 3; elide: Text.ElideRight; ToolTip.text: text; ToolTip.visible: errorHover.hovered; HoverHandler { id: errorHover } }
                 ActionButton { text: "Retry"; enabled: !translationModel.busy; onClicked: translationModel.translate() }
                 ActionButton { text: "Settings"; onClicked: settingsDialog.open() }
                 ActionButton { symbol: "close"; ToolTip.text: "Dismiss error"; onClicked: translationModel.reportError("") }
@@ -187,12 +187,12 @@ ApplicationWindow {
         }
         RowLayout {
             Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: root.notice || translationModel.status; color: root.notice ? "#0d897e" : "#637587"; elide: Text.ElideRight }
+            Label { Layout.fillWidth: true; text: root.notice || translationModel.status; color: root.notice ? Theme.accent : Theme.muted; elide: Text.ElideRight }
             Switch {
                 text: "Auto-translate"; checked: settingsModel.autoTranslate
                 onToggled: { settingsModel.autoTranslate = checked; settingsModel.save(); if (checked) root.schedule(); else autoTimer.stop() }
             }
-            Caption { text: "Ctrl + Enter" }
+            Caption { text: "Ctrl + Enter"; font.family: Theme.monoFamily }
             ActionButton { text: "Translate"; symbol: "arrow"; primary: true; enabled: !translationModel.busy && translationModel.sourceText.trim().length > 0; onClicked: { autoTimer.stop(); translationModel.translate() } }
         }
     }
@@ -201,13 +201,13 @@ ApplicationWindow {
         ColumnLayout {
             anchors.fill: parent; anchors.margins: 20; spacing: 16
             RowLayout {
-                Label { text: "History"; font.pixelSize: 22; font.bold: true }
+                Label { text: "History"; font.family: Theme.displayFamily; font.pixelSize: Theme.sizeTitle; font.weight: Theme.weightBold }
                 Item { Layout.fillWidth: true }
                 ActionButton { text: "Clear all"; enabled: translationModel.history.length > 0; onClicked: clearHistoryDialog.open() }
                 ActionButton { symbol: "close"; ToolTip.text: "Close history"; onClicked: historyDrawer.close() }
             }
             TextField { id: historySearch; objectName: "historySearch"; Layout.fillWidth: true; placeholderText: "Search translations…"; Accessible.name: "Search history" }
-            Label { visible: historyList.count === 0; text: historySearch.text ? "No matching translations." : "Your translations will be saved here."; color: "#637587"; Layout.fillWidth: true; wrapMode: Text.Wrap }
+            Label { visible: historyList.count === 0; text: historySearch.text ? "No matching translations." : "Your translations will be saved here."; color: Theme.muted; Layout.fillWidth: true; wrapMode: Text.Wrap }
             ListView {
                 id: historyList; objectName: "historyList"; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 8
                 model: translationModel.history.filter(item => (item.source + " " + item.translation).toLowerCase().indexOf(historySearch.text.toLowerCase()) >= 0)
@@ -223,8 +223,8 @@ ApplicationWindow {
                     contentItem: ColumnLayout {
                         id: historyContent; spacing: 6
                         Caption { text: root.languageName(modelData.source_language) + " → " + root.languageName(modelData.target_language) }
-                        Label { Layout.fillWidth: true; text: modelData.source; elide: Text.ElideRight; font.bold: true }
-                        Label { Layout.fillWidth: true; text: modelData.translation; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; color: "#637587" }
+                        Label { Layout.fillWidth: true; text: modelData.source; elide: Text.ElideRight; font.weight: Theme.weightMedium }
+                        Label { Layout.fillWidth: true; text: modelData.translation; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; color: Theme.muted }
                         Caption { text: "Click to restore · " + modelData.created_at.slice(0, 10) }
                     }
                 }
@@ -241,7 +241,7 @@ ApplicationWindow {
         id: settingsDialog; objectName: "settingsDialog"; title: "Settings"; modal: true; anchors.centerIn: parent
         width: Math.min(root.width - 48, 520); height: Math.min(root.height - 48, 530)
         padding: 20
-        background: Rectangle { color: "#f8fafb"; radius: 12; border.color: "#dce4eb" }
+        background: Rectangle { color: Theme.raisedAlt; radius: Theme.radiusLarge; border.color: Theme.hairline }
         footer: DialogButtonBox {
             padding: 16; spacing: 8
             background: Item {}
@@ -271,15 +271,15 @@ ApplicationWindow {
             anchors.fill: parent; clip: true; contentWidth: availableWidth
             ColumnLayout {
                 width: parent.width; spacing: 12
-                Label { text: "Translation service"; font.bold: true; font.pixelSize: 16 }
-                Label { Layout.fillWidth: true; text: "Connect a Google Cloud Translation API key to translate text."; wrapMode: Text.Wrap; color: "#637587" }
+                Label { text: "Translation service"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold }
+                Label { Layout.fillWidth: true; text: "Connect a Google Cloud Translation API key to translate text."; wrapMode: Text.Wrap; color: Theme.muted }
                 Label { text: "API key" }
                 SettingsField { id: apiKey; objectName: "apiKey"; Layout.fillWidth: true; placeholderText: "Enter your API key"; echoMode: showKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "Google Cloud API key" }
                 CheckBox { id: showKey; text: "Show key"; checked: false }
-                Label { text: "Desktop"; font.bold: true; font.pixelSize: 16; Layout.topMargin: 8 }
+                Label { text: "Desktop"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
                 CheckBox { id: startup; objectName: "startup"; text: "Start with system" }
-                Label { text: "OCR"; font.bold: true; font.pixelSize: 16; Layout.topMargin: 8 }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"
+                Label { text: "OCR"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted
                     text: "OCR reads text from a screenshot by sending the image to OpenAI's Vision API. Enter an API key below to enable it." }
                 Label { text: "OpenAI API key" }
                 SettingsField { id: openaiKey; objectName: "openaiKey"; Layout.fillWidth: true; placeholderText: "Enter your OpenAI API key"; echoMode: showOpenaiKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "OpenAI API key" }
@@ -292,7 +292,7 @@ ApplicationWindow {
                     from: 256; to: 4096; stepSize: 64; editable: true
                     Accessible.name: "OCR image resize resolution in pixels"
                 }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: Theme.sizeCaption
                     text: "Images larger than this are downscaled before upload to reduce cost and latency; too low can blur small text." }
                 Label { text: "Screenshot shortcut" }
                 ActionButton {
@@ -328,8 +328,8 @@ ApplicationWindow {
                     }
                     Keys.onReleased: function(event) { event.accepted = true }
                 }
-                Label { Layout.fillWidth: true; visible: screenshotHotkey.error.length > 0; text: screenshotHotkey.error; wrapMode: Text.Wrap; color: "#b42318" }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11
+                Label { Layout.fillWidth: true; visible: screenshotHotkey.error.length > 0; text: screenshotHotkey.error; wrapMode: Text.Wrap; color: Theme.danger }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: Theme.sizeCaption
                     text: "Drag-select a screen area, read its text with OCR, and translate it in the quick-translate popup. Changes apply after restarting PyCrow." }
                 Label { text: "Quick-translate shortcut" }
                 ActionButton {
@@ -365,9 +365,9 @@ ApplicationWindow {
                     }
                     Keys.onReleased: function(event) { event.accepted = true }
                 }
-                Label { Layout.fillWidth: true; visible: hotkey.error.length > 0; text: hotkey.error; wrapMode: Text.Wrap; color: "#b42318" }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; text: "Select text in another app and press this shortcut. Shortcut changes apply after restarting PyCrow." }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: "#637587"; font.pixelSize: 11; text: "Your API key is stored locally in your user settings file." }
+                Label { Layout.fillWidth: true; visible: hotkey.error.length > 0; text: hotkey.error; wrapMode: Text.Wrap; color: Theme.danger }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; text: "Select text in another app and press this shortcut. Shortcut changes apply after restarting PyCrow." }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: Theme.sizeCaption; text: "Your API key is stored locally in your user settings file." }
             }
         }
     }

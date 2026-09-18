@@ -2,6 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Window
+import "."
 
 Window {
     id: popup
@@ -41,9 +42,9 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        radius: 10
-        color: "#ffffff"
-        border.color: "#d5d9de"
+        radius: Theme.radiusLarge
+        color: Theme.raised
+        border.color: Theme.hairline
         border.width: 1
 
         Keys.onEscapePressed: popup.close()
@@ -58,8 +59,8 @@ Window {
                 Layout.fillWidth: true
                 Label {
                     text: popup.languageName(quickTranslateModel.detectedSourceLanguage || quickTranslateModel.sourceLanguage) + " → " + popup.languageName(quickTranslateModel.targetLanguage)
-                    color: "#6b7480"
-                    font.pixelSize: 11
+                    color: Theme.muted
+                    font.pixelSize: Theme.sizeCaption
                     Layout.fillWidth: true
                     elide: Text.ElideRight
                 }
@@ -68,8 +69,8 @@ Window {
                 ActionButton { symbol: "close"; ToolTip.text: "Close popup"; onClicked: popup.close() }
             }
 
-            Label { visible: quickTranslateModel.busy || popup.notice.length > 0; text: popup.notice || "Translating…"; color: "#0d897e" }
-            Label { Layout.fillWidth: true; visible: quickTranslateModel.error.length > 0; text: quickTranslateModel.error; color: "#a03927"; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight }
+            Label { visible: quickTranslateModel.busy || popup.notice.length > 0; text: popup.notice || "Translating…"; color: Theme.accent }
+            Label { Layout.fillWidth: true; visible: quickTranslateModel.error.length > 0; text: quickTranslateModel.error; color: Theme.danger; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight }
             ActionButton { visible: quickTranslateModel.error.length > 0; text: "Retry"; enabled: !quickTranslateModel.busy; onClicked: quickTranslateModel.translate() }
             ScrollView {
                 Layout.fillWidth: true
@@ -78,9 +79,9 @@ Window {
                 TextArea {
                     readOnly: true
                     wrapMode: TextEdit.Wrap
-                    font.pixelSize: 14
-                    color: "#182b3a"
-                    placeholderTextColor: "#637587"
+                    font.pixelSize: Theme.sizeControl
+                    color: Theme.ink
+                    placeholderTextColor: Theme.placeholder
                     background: Item {}
                     text: quickTranslateModel.translatedText
                     placeholderText: quickTranslateModel.busy ? "Translating…" : "Translation"
@@ -94,8 +95,8 @@ Window {
                 wrapMode: Text.Wrap
                 elide: Text.ElideRight
                 maximumLineCount: 2
-                color: "#8a9099"
-                font.pixelSize: 11
+                color: Theme.muted
+                font.pixelSize: Theme.sizeCaption
             }
         }
     }

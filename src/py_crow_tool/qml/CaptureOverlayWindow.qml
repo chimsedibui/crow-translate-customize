@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Window
+import "."
 
 // One instance of this is created per connected screen by CaptureOverlay.qml, so a single
 // hotkey press lets the user drag-select on whichever monitor the region is actually on.
@@ -45,7 +46,7 @@ Window {
 
     Rectangle {
         anchors.fill: parent
-        color: "#000000a6"
+        color: Theme.scrim
         focus: true
         Keys.onEscapePressed: captureController.cancel()
 
@@ -68,8 +69,8 @@ Window {
             id: selectionRect
             objectName: "selectionRect"
             visible: mouseArea.pressed
-            color: "#0d897e33"
-            border.color: "#0d897e"
+            color: Theme.selectionFill
+            border.color: Theme.accent
             border.width: 2
             x: Math.min(mouseArea.mouseX, overlay.originX)
             y: Math.min(mouseArea.mouseY, overlay.originY)
@@ -81,11 +82,11 @@ Window {
             anchors.top: parent.top
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.topMargin: 24
-            radius: 8
-            color: "#182b3acc"
+            radius: Theme.radiusSmall
+            color: Theme.overlayChip
             width: hint.implicitWidth + 24
             height: hint.implicitHeight + 12
-            Label { id: hint; anchors.centerIn: parent; text: "Drag to select an area  ·  Esc to cancel"; color: "white" }
+            Label { id: hint; anchors.centerIn: parent; text: "Drag to select an area  ·  Esc to cancel"; color: Theme.inkInverse }
         }
     }
 
