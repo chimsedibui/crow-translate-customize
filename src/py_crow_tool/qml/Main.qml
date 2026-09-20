@@ -176,7 +176,7 @@ ApplicationWindow {
                             onTextChanged: if (activeFocus) translationModel.sourceText = text
                             placeholderText: "Type or paste text here…"
                             placeholderTextColor: Theme.placeholder
-                            wrapMode: TextEdit.Wrap; selectByMouse: true
+                            wrapMode: TextEdit.Wrap; selectByMouse: true; verticalAlignment: TextEdit.AlignTop
                             font.pixelSize: Theme.sizeReading; color: Theme.ink
                             background: Item {}
                             Accessible.name: "Source text"
@@ -215,7 +215,7 @@ ApplicationWindow {
                         Layout.fillWidth: true; Layout.fillHeight: true; clip: true
                         TextArea {
                             text: translationModel.translatedText
-                            readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap
+                            readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; verticalAlignment: TextEdit.AlignTop
                             placeholderText: "Your translation will appear here."
                             placeholderTextColor: Theme.placeholder
                             font.pixelSize: Theme.sizeReading; color: Theme.ink; background: Item {}
@@ -308,7 +308,10 @@ ApplicationWindow {
             ActionButton { text: "Cancel"; DialogButtonBox.buttonRole: DialogButtonBox.RejectRole }
             ActionButton { text: "Save changes"; primary: true; enabled: !hotkey.recording && !screenshotHotkey.recording; DialogButtonBox.buttonRole: DialogButtonBox.AcceptRole }
         }
-        onOpened: {
+        // The draft is seeded before the enter transition rather than after it: the
+        // FluentWinUI3 style animates the dialog in, and "opened" only fires once that
+        // animation finishes, which would show a frame of stale fields first.
+        onAboutToShow: {
             showKey.checked = false; apiKey.text = settingsModel.apiKey; startup.checked = settingsModel.startWithSystem
             hotkey.sequence = settingsModel.quickTranslateHotkey; hotkey.error = ""
             showOpenaiKey.checked = false; openaiKey.text = settingsModel.openaiApiKey
@@ -316,7 +319,7 @@ ApplicationWindow {
             resizeResolution.value = settingsModel.ocrResizeResolution
             screenshotHotkey.sequence = settingsModel.screenshotHotkey; screenshotHotkey.error = ""
         }
-        onClosed: { hotkey.recording = false; screenshotHotkey.recording = false }
+        onAboutToHide: { hotkey.recording = false; screenshotHotkey.recording = false }
         onAccepted: {
             settingsModel.apiKey = apiKey.text.trim()
             settingsModel.startWithSystem = startup.checked

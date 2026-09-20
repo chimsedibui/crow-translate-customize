@@ -71,6 +71,17 @@ QtObject {
     readonly property int radiusSmall: 8
     readonly property int radiusLarge: 12
 
+    // Elevation. Only the quick-translate popup needs this: it is a frameless window
+    // thrown on top of whatever application the user was in, and without a shadow it
+    // reads as a rectangle pasted onto the screen rather than something floating
+    // above it. shadowMargin is the transparent gutter the window has to reserve
+    // around the card for the blur to render into.
+    readonly property color shadow: dark ? "#000000" : "#16232f"
+    readonly property int shadowMargin: 24
+    readonly property real shadowOpacity: dark ? 0.6 : 0.3
+    readonly property int shadowOffset: 8
+    readonly property real shadowBlurMax: 32
+
     // Motion. Kept short and limited to colour and opacity: this is a utility that
     // pops over other windows, so transitions should soften the appearance, never
     // delay it.

@@ -52,7 +52,13 @@ class _ShortcutDispatcher(QObject):
 
 
 def main() -> int:
-    QQuickStyle.setStyle("Basic")
+    # FluentWinUI3 is Qt's WinUI 3 style, so the controls we do not draw ourselves
+    # -- combo box popups, check boxes, the switch, the spin box, scroll bars --
+    # match Windows 11 instead of falling back to Qt's generic Basic look. Our own
+    # Theme-driven backgrounds still apply on top; the one behaviour this style
+    # changes is TextArea, which defaults to AlignVCenter, so the editors set
+    # verticalAlignment explicitly.
+    QQuickStyle.setStyle("FluentWinUI3")
     app = QApplication(sys.argv)
     app.setApplicationName("PyCrow Tool")
     app.setOrganizationName("CrowTranslate")
@@ -275,7 +281,12 @@ def _capture_screenshot(
 
 def _popup_position(cursor, popup) -> tuple[int, int]:
     x, y = cursor.x() + 12, cursor.y() + 12
-    width, height = popup.property("width"), popup.property("height")
+    # The popup window is larger than the card it shows: it reserves a transparent
+    # gutter for the drop shadow. Fitting the window to the screen would push the
+    # card a gutter's width away from every edge, so the visible card is what gets
+    # measured and placed here, and popAt offsets the window behind it.
+    gutter = 2 * (popup.property("shadowMargin") or 0)
+    width, height = popup.property("width") - gutter, popup.property("height") - gutter
     screen = QGuiApplication.screenAt(cursor) or QGuiApplication.primaryScreen()
     if screen is not None:
         geometry = screen.availableGeometry()

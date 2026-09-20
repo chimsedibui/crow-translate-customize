@@ -11,8 +11,17 @@ from py_crow_tool.services.desktop import DesktopServices
 
 
 class _FakePopup:
-    def __init__(self, width, height):
-        self._props = {"width": width, "height": height}
+    """The popup window is the visible card plus a transparent shadow gutter on
+    every side, and _popup_position places the card rather than the window."""
+
+    def __init__(self, card_width, card_height, shadow_margin=24):
+        self.card_width = card_width
+        self.card_height = card_height
+        self._props = {
+            "width": card_width + shadow_margin * 2,
+            "height": card_height + shadow_margin * 2,
+            "shadowMargin": shadow_margin,
+        }
 
     def property(self, name):
         return self._props[name]
@@ -38,8 +47,21 @@ def test_popup_position_stays_within_the_screen(qapp):
 
     x, y = _popup_position(cursor, popup)
 
-    assert geometry.left() <= x <= geometry.right() - popup.property("width")
-    assert geometry.top() <= y <= geometry.bottom() - popup.property("height")
+    assert geometry.left() <= x <= geometry.right() - popup.card_width
+    assert geometry.top() <= y <= geometry.bottom() - popup.card_height
+
+
+def test_popup_position_fits_the_card_not_the_shadow_gutter(qapp):
+    # A gutter-sized popup must still be allowed to sit flush against the screen
+    # edge: only the card has to fit, the transparent gutter may hang off.
+    screen = qapp.primaryScreen()
+    geometry = screen.availableGeometry()
+    cursor = QPoint(geometry.right(), geometry.bottom())
+
+    plain = _FakePopup(380, 260, shadow_margin=0)
+    shadowed = _FakePopup(380, 260, shadow_margin=24)
+
+    assert _popup_position(cursor, plain) == _popup_position(cursor, shadowed)
 
 
 def _capture_setup(monkeypatch):

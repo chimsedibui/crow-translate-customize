@@ -4,7 +4,6 @@ import pytest
 import shiboken6
 from PySide6.QtCore import QObject, Property, Signal, QUrl, QMetaObject
 from PySide6.QtQml import QQmlApplicationEngine
-from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 
@@ -25,7 +24,6 @@ class DesktopStub(QObject):
 
 @pytest.fixture
 def ui(qapp, tmp_path):
-    QQuickStyle.setStyle("Basic")
     runner = AsyncLoopRunner()
     settings = AppSettings()
     store = SettingsStore(tmp_path / "settings.toml")

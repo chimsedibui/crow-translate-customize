@@ -26,7 +26,7 @@ This repository contains the **Python version** of Crow Translate — a from-scr
 - Settings are applied with **Save changes**; **Cancel** discards edits.
 - Pin the quick-translate popup to keep it open when switching windows.
 
-The preview uses sample text. The interface uses Qt Quick's Basic style for consistent custom controls across platforms.
+The preview uses sample text. The interface uses Qt Quick's FluentWinUI3 style, so controls follow Windows 11 conventions.
 
 ## Feature summary
 
