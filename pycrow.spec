@@ -17,9 +17,10 @@ a = Analysis(
 
 # PySide6's QtQml hook (collect_qtqml_files) bundles every QML plugin it finds under Qt's
 # QML import path, regardless of whether the app imports it. Our QML only uses QtQml,
-# QtQml.Models, QtQuick, QtQuick.Controls (FluentWinUI3 style), QtQuick.Layouts and QtQuick.Window,
-# so this strips whole unrelated Qt feature areas (WebEngine/Chromium alone is ~83 MB) that
-# would otherwise roughly triple the built executable for no functional benefit.
+# QtQml.Models, QtQuick, QtQuick.Controls (FluentWinUI3 style), QtQuick.Effects (MultiEffect,
+# for the drop shadows), QtQuick.Layouts and QtQuick.Window, so this strips whole unrelated Qt
+# feature areas (WebEngine/Chromium alone is ~83 MB) that would otherwise roughly triple
+# the built executable for no functional benefit.
 _UNUSED_QT_QML_DIRS = (
     "PySide6\\qml\\QtWebEngine",
     "PySide6\\qml\\Qt3D",

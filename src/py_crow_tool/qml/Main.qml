@@ -53,29 +53,48 @@ ApplicationWindow {
 
     component LanguagePicker: ComboBox {
         Layout.fillWidth: true
-        implicitHeight: 40
+        implicitHeight: Theme.fieldHeight
         textRole: "name"; valueRole: "code"
         font.pixelSize: Theme.sizeControl
-        background: Rectangle { color: Theme.raised; radius: Theme.radiusSmall; border.color: parent.activeFocus ? Theme.accent : Theme.hairline }
+        background: Surface {
+            radius: Theme.radiusSmall
+            border.color: parent.activeFocus ? Theme.focusRing : Theme.hairline
+            level: parent.activeFocus ? 1 : 0
+        }
     }
     component SettingsField: TextField {
-        implicitHeight: 40
-        background: Rectangle { radius: Theme.radiusSmall; color: Theme.raised; border.color: parent.activeFocus ? Theme.accent : Theme.hairline }
+        implicitHeight: Theme.fieldHeight
+        background: Surface {
+            radius: Theme.radiusSmall
+            border.color: parent.activeFocus ? Theme.focusRing : Theme.hairline
+            level: parent.activeFocus ? 1 : 0
+        }
     }
     component Caption: Label { color: Theme.muted; font.pixelSize: Theme.sizeCaption; font.weight: Theme.weightMedium }
     // The language code is data, so it is set in the mono face. It carries the accent
-    // only when the language was inferred rather than chosen.
+    // only when the language was inferred rather than chosen -- and because that is the
+    // app working something out on the user's behalf, the change is worth a moment:
+    // the chip takes the accent over durationBase and swells six percent on the way.
     component LanguageCode: Rectangle {
+        id: chip
         property string code: ""
         property bool detected: false
         implicitWidth: codeLabel.implicitWidth + 12
         implicitHeight: codeLabel.implicitHeight + 6
-        radius: 4
+        radius: Theme.radiusChip
         color: detected ? Theme.accentSoft : Theme.controlHover
+        Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durationBase); easing.type: Theme.easingCurve } }
+        onDetectedChanged: if (detected && !Theme.reduceMotion) chipPop.restart()
+        SequentialAnimation {
+            id: chipPop
+            NumberAnimation { target: chip; property: "scale"; to: 1.06; duration: Theme.durationBase * 0.45; easing.type: Theme.easingCurve }
+            NumberAnimation { target: chip; property: "scale"; to: 1.0; duration: Theme.durationBase * 0.55; easing.type: Theme.easingCurve }
+        }
         Label {
-            id: codeLabel; anchors.centerIn: parent; text: parent.code
+            id: codeLabel; anchors.centerIn: parent; text: chip.code
             font.family: Theme.monoFamily; font.pixelSize: Theme.sizeCaption
-            color: parent.detected ? Theme.accentSoftInk : Theme.muted
+            color: chip.detected ? Theme.accentSoftInk : Theme.muted
+            Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durationBase); easing.type: Theme.easingCurve } }
         }
     }
 
@@ -118,10 +137,22 @@ ApplicationWindow {
                 onActivated: translationModel.sourceLanguage = currentValue
                 Accessible.name: "Source language"
             }
+            // The one control in the app whose entire meaning is "reverse direction", so
+            // it is one of the two places the spring is allowed. The turn accumulates
+            // rather than toggling between 0 and 180: consecutive swaps then keep going
+            // the same way instead of rocking back and forth.
             ActionButton {
+                id: swapButton
                 symbol: "swap"; ToolTip.text: "Swap languages"
                 enabled: translationModel.sourceLanguage !== "auto" || translationModel.detectedSourceLanguage.length > 0
-                onClicked: translationModel.swapLanguages()
+                onClicked: { rotation += 180; translationModel.swapLanguages() }
+                Behavior on rotation {
+                    NumberAnimation {
+                        duration: Theme.motion(Theme.durationBase)
+                        easing.type: Theme.easingSpring
+                        easing.overshoot: Theme.springOvershoot
+                    }
+                }
             }
             LanguagePicker {
                 id: targetLanguage; objectName: "targetLanguage"; model: translationModel.languages.slice(1)
@@ -132,6 +163,7 @@ ApplicationWindow {
 
         }
         SplitView {
+            id: panes
             Layout.fillWidth: true; Layout.fillHeight: true
             orientation: Qt.Horizontal
             handle: Rectangle {
@@ -139,16 +171,24 @@ ApplicationWindow {
                 color: "transparent"
                 Rectangle {
                     anchors.centerIn: parent
-                    width: 3; height: 40; radius: 2
-                    color: SplitHandle.pressed ? Theme.accent : SplitHandle.hovered ? Theme.muted : Theme.hairline
-                    Behavior on color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingCurve } }
+                    width: SplitHandle.hovered || SplitHandle.pressed ? 5 : 3
+                    height: 40; radius: width / 2
+                    color: SplitHandle.pressed ? Theme.accent : SplitHandle.hovered ? Theme.muted : Theme.hairlineStrong
+                    Behavior on color { ColorAnimation { duration: Theme.motion(Theme.durationFast); easing.type: Theme.easingCurve } }
+                    Behavior on width { NumberAnimation { duration: Theme.motion(Theme.durationFast); easing.type: Theme.easingCurve } }
                 }
             }
-            Rectangle {
+            // The surface sits behind the content rather than around it: a shadow is a
+            // MultiEffect, and layering a pane that holds a live editor would push every
+            // keystroke through an offscreen texture. See Surface.qml.
+            Item {
                 SplitView.fillWidth: true
-                SplitView.minimumWidth: 240
-                color: Theme.raised; radius: Theme.radiusLarge; border.color: sourceEditor.activeFocus ? Theme.accent : Theme.hairline
-                Behavior on border.color { ColorAnimation { duration: Theme.durationFast; easing.type: Theme.easingCurve } }
+                SplitView.minimumWidth: Theme.paneMinWidth
+                Surface {
+                    anchors.fill: parent
+                    border.color: sourceEditor.activeFocus ? Theme.focusRing : Theme.hairline
+                    level: sourceEditor.activeFocus ? 1 : 0
+                }
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 16; spacing: 10
                     RowLayout {
@@ -187,20 +227,25 @@ ApplicationWindow {
                         ActionButton { text: "Paste"; symbol: "paste"; onClicked: translationModel.pasteSource() }
                         ActionButton { symbol: "scan"; ToolTip.text: "Read text from clipboard image"; onClicked: ocrService.recognizeClipboardImage() }
                         ActionButton { symbol: "speaker"; ToolTip.text: ttsService.speaking ? "Stop speaking" : "Read source aloud"; enabled: translationModel.sourceText.length > 0; onClicked: ttsService.speaking ? ttsService.stop() : ttsService.speak(translationModel.sourceText, translationModel.detectedSourceLanguage || translationModel.sourceLanguage) }
-                        ActionButton { symbol: "copy"; ToolTip.text: "Copy source"; enabled: translationModel.sourceText.length > 0; onClicked: { translationModel.copySource(); root.copied() } }
+                        ActionButton { symbol: "copy"; ToolTip.text: "Copy source"; enabled: translationModel.sourceText.length > 0; onClicked: { translationModel.copySource(); flash(); root.copied() } }
                         Item { Layout.fillWidth: true }
                         Caption { text: translationModel.sourceText.length + " chars"; font.family: Theme.monoFamily }
                     }
                 }
             }
-            Rectangle {
-                SplitView.fillWidth: true
-                SplitView.minimumWidth: 240
-                color: Theme.raisedAlt; radius: Theme.radiusLarge; border.color: Theme.hairline
+            // Only the source pane fills: when two items both do, SplitView hands the
+            // leftover to the first and the second falls back to its minimum, which is
+            // why the translation pane opened squashed to 240px. A preferred width keeps
+            // the window symmetrical at any size, and the first drag overwrites this
+            // binding, so the user's own split still sticks.
+            Item {
+                SplitView.preferredWidth: (panes.width - 16) / 2
+                SplitView.minimumWidth: Theme.paneMinWidth
+                Surface { anchors.fill: parent; color: Theme.raisedTranslated }
                 ColumnLayout {
                     anchors.fill: parent; anchors.margins: 16; spacing: 10
                     RowLayout {
-                        Layout.fillWidth: true; Layout.minimumHeight: 36; spacing: 8
+                        Layout.fillWidth: true; Layout.minimumHeight: Theme.controlHeight; spacing: 8
                         Label {
                             text: root.languageName(translationModel.targetLanguage); color: Theme.ink
                             font.family: Theme.displayFamily; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightMedium
@@ -208,34 +253,71 @@ ApplicationWindow {
                         }
                         LanguageCode { code: translationModel.targetLanguage.toUpperCase() }
                         Item { Layout.fillWidth: true }
-                        BusyIndicator { visible: translationModel.busy; running: visible; implicitWidth: 24; implicitHeight: 24 }
-                        Label { visible: translationModel.busy; text: "Updating…"; color: Theme.accent; font.pixelSize: Theme.sizeCaption }
                     }
-                    ScrollView {
-                        Layout.fillWidth: true; Layout.fillHeight: true; clip: true
-                        TextArea {
-                            text: translationModel.translatedText
-                            readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; verticalAlignment: TextEdit.AlignTop
-                            placeholderText: "Your translation will appear here."
-                            placeholderTextColor: Theme.placeholder
-                            font.pixelSize: Theme.sizeReading; color: Theme.ink; background: Item {}
-                            Accessible.name: "Translation"
+                    Item {
+                        Layout.fillWidth: true; Layout.fillHeight: true
+
+                        // While a request is in flight the pane shows where the answer is
+                        // going to be written, rather than a spinner in the corner saying
+                        // that something is happening somewhere.
+                        SkeletonLines {
+                            id: translationSkeleton
+                            width: parent.width
+                            y: 6
+                            visible: translationModel.busy
                         }
+
+                        ScrollView {
+                            anchors.fill: parent; clip: true
+                            visible: !translationSkeleton.visible
+                            TextArea {
+                                id: translatedText
+                                text: translationModel.translatedText
+                                readOnly: true; selectByMouse: true; wrapMode: TextEdit.Wrap; verticalAlignment: TextEdit.AlignTop
+                                placeholderText: "Your translation will appear here."
+                                placeholderTextColor: Theme.placeholder
+                                font.pixelSize: Theme.sizeReading; color: Theme.ink; background: Item {}
+                                Accessible.name: "Translation"
+                                transform: Translate { id: translatedShift }
+                            }
+                        }
+                    }
+                    // Only the text moves. The heading, the chip and the buttons did not
+                    // change, and animating them would turn a six-pixel move into a
+                    // flicker. Bound to the text changing rather than to busy going
+                    // false, so a result restored from history arrives the same way.
+                    Connections {
+                        target: translationModel
+                        function onTranslatedTextChanged() {
+                            if (translationModel.translatedText.length > 0 && !Theme.reduceMotion) reveal.restart()
+                        }
+                    }
+                    ParallelAnimation {
+                        id: reveal
+                        NumberAnimation { target: translatedText; property: "opacity"; from: 0; to: 1; duration: Theme.durationBase; easing.type: Theme.easingCurve }
+                        NumberAnimation { target: translatedShift; property: "y"; from: 6; to: 0; duration: Theme.durationBase; easing.type: Theme.easingCurve }
                     }
                     RowLayout {
                         Layout.fillWidth: true
                         ActionButton { symbol: "speaker"; ToolTip.text: ttsService.speaking ? "Stop speaking" : "Read translation aloud"; enabled: translationModel.translatedText.length > 0; onClicked: ttsService.speaking ? ttsService.stop() : ttsService.speak(translationModel.translatedText, translationModel.targetLanguage) }
                         Item { Layout.fillWidth: true }
-                        ActionButton { text: "Copy translation"; symbol: "copy"; enabled: translationModel.translatedText.length > 0; onClicked: { translationModel.copyTranslated(); root.copied() } }
+                        ActionButton { text: "Copy translation"; symbol: "copy"; enabled: translationModel.translatedText.length > 0; onClicked: { translationModel.copyTranslated(); flash(); root.copied() } }
                     }
                 }
             }
         }
+        // Fades and travels four pixels: the drop is what makes it read as arriving
+        // rather than as having been there all along.
         Rectangle {
+            id: errorBanner
             Layout.fillWidth: true; implicitHeight: errorRow.implicitHeight + 20
             opacity: translationModel.error.length > 0 ? 1 : 0
             visible: opacity > 0
-            Behavior on opacity { NumberAnimation { duration: Theme.durationFast; easing.type: Theme.easingCurve } }
+            Behavior on opacity { NumberAnimation { duration: Theme.motion(Theme.durationBase); easing.type: Theme.easingCurve } }
+            transform: Translate {
+                y: translationModel.error.length > 0 ? 0 : -4
+                Behavior on y { NumberAnimation { duration: Theme.motion(Theme.durationBase); easing.type: Theme.easingCurve } }
+            }
             color: Theme.dangerSoft; radius: Theme.radiusSmall
             RowLayout {
                 id: errorRow; anchors.fill: parent; anchors.margins: 10
@@ -247,7 +329,23 @@ ApplicationWindow {
         }
         RowLayout {
             Layout.fillWidth: true
-            Label { Layout.fillWidth: true; text: root.notice || translationModel.status; color: root.notice ? Theme.accent : Theme.muted; elide: Text.ElideRight }
+            // A notice replaces the status for a moment and then hands it back. Both
+            // arrivals slide up six pixels, which is what separates "this just happened"
+            // from text that was always sitting there.
+            Label {
+                id: statusLabel
+                Layout.fillWidth: true
+                text: root.notice || translationModel.status
+                color: root.notice ? Theme.accent : Theme.muted
+                elide: Text.ElideRight
+                transform: Translate { id: statusShift }
+                onTextChanged: if (text.length > 0 && !Theme.reduceMotion) statusIn.restart()
+                ParallelAnimation {
+                    id: statusIn
+                    NumberAnimation { target: statusLabel; property: "opacity"; from: 0; to: 1; duration: Theme.durationBase; easing.type: Theme.easingCurve }
+                    NumberAnimation { target: statusShift; property: "y"; from: 6; to: 0; duration: Theme.durationBase; easing.type: Theme.easingCurve }
+                }
+            }
             Switch {
                 text: "Auto-translate"; checked: settingsModel.autoTranslate
                 onToggled: { settingsModel.autoTranslate = checked; settingsModel.save(); if (checked) root.schedule(); else autoTimer.stop() }
@@ -258,6 +356,15 @@ ApplicationWindow {
     }
     Drawer {
         id: historyDrawer; objectName: "historyDrawer"; edge: Qt.RightEdge; width: Math.min(root.width - 48, 420); height: root.height
+        // It floats over the app rather than sitting in it, so it takes the popup
+        // elevation instead of a pane's.
+        background: Surface { radius: 0; level: 2 }
+
+        // True from just before the drawer shows until its rows have finished arriving.
+        // The delegates read it to tell an opening from a re-filter.
+        property bool entering: false
+        onAboutToShow: { entering = true; enteringTimer.restart() }
+        Timer { id: enteringTimer; interval: 600; onTriggered: historyDrawer.entering = false }
         ColumnLayout {
             anchors.fill: parent; anchors.margins: 20; spacing: 16
             RowLayout {
@@ -272,9 +379,32 @@ ApplicationWindow {
                 id: historyList; objectName: "historyList"; Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 8
                 model: translationModel.history.filter(item => (item.source + " " + item.translation).toLowerCase().indexOf(historySearch.text.toLowerCase()) >= 0)
                 delegate: ItemDelegate {
+                    id: historyRow
                     required property var modelData
+                    required property int index
                     width: ListView.view.width
                     implicitHeight: historyContent.implicitHeight + 24
+
+                    // Rows arrive in sequence, forty milliseconds apart, for the first
+                    // eight only: past that the delay would outlast the glance it is
+                    // meant to guide. Only while the drawer is opening -- the filter
+                    // rebuilds these delegates on every keystroke, and a staggered
+                    // re-entry each time someone types is noise, not feedback.
+                    opacity: 0
+                    transform: Translate { id: rowShift; y: 8 }
+                    Component.onCompleted: {
+                        if (historyDrawer.entering && !Theme.reduceMotion) rowIn.start()
+                        else { historyRow.opacity = 1; rowShift.y = 0 }
+                    }
+                    SequentialAnimation {
+                        id: rowIn
+                        PauseAnimation { duration: Theme.motion(Math.min(historyRow.index, 7) * Theme.durationStagger) }
+                        ParallelAnimation {
+                            NumberAnimation { target: historyRow; property: "opacity"; to: 1; duration: Theme.motion(Theme.durationBase); easing.type: Theme.easingCurve }
+                            NumberAnimation { target: rowShift; property: "y"; to: 0; duration: Theme.motion(Theme.durationBase); easing.type: Theme.easingCurve }
+                        }
+                    }
+
                     onClicked: {
                         root.restoring = true; autoTimer.stop()
                         translationModel.restoreHistory(modelData.source, modelData.translation, modelData.source_language, modelData.target_language)
@@ -301,7 +431,7 @@ ApplicationWindow {
         id: settingsDialog; objectName: "settingsDialog"; title: "Settings"; modal: true; anchors.centerIn: parent
         width: Math.min(root.width - 48, 520); height: Math.min(root.height - 48, 530)
         padding: 20
-        background: Rectangle { color: Theme.raisedAlt; radius: Theme.radiusLarge; border.color: Theme.hairline }
+        background: Surface { color: Theme.raisedAlt; level: 2 }
         footer: DialogButtonBox {
             padding: 16; spacing: 8
             background: Item {}

@@ -39,6 +39,28 @@ def _apply_app_font(app: QApplication) -> None:
     app.setFont(font)
 
 
+def _system_reduce_motion() -> bool:
+    """True when the OS asks applications to keep animation to a minimum.
+
+    Qt exposes no cross-platform accessor for this, so it is read once at startup and
+    handed to QML as a context property; Theme.qml turns every move, turn and scale to
+    zero duration when it is set, and keeps the fades.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+
+        SPI_GETCLIENTAREAANIMATION = 0x1042
+        animations_enabled = ctypes.c_int(1)
+        ok = ctypes.windll.user32.SystemParametersInfoW(
+            SPI_GETCLIENTAREAANIMATION, 0, ctypes.byref(animations_enabled), 0
+        )
+        return bool(ok) and not animations_enabled.value
+    except Exception:  # pragma: no cover - a missing setting is not a reason to fail to start
+        return False
+
+
 class _ShortcutDispatcher(QObject):
     """Give keyboard callbacks an explicit receiver on the Qt GUI thread."""
 
@@ -80,12 +102,15 @@ def main() -> int:
     ocr = OcrService(settings, loop_runner)
     desktop = DesktopServices()
 
+    reduce_motion = _system_reduce_motion()
+
     engine = QQmlApplicationEngine()
     context = engine.rootContext()
     context.setContextProperty("translationModel", translation_vm)
     context.setContextProperty("settingsModel", settings_vm)
     context.setContextProperty("ttsService", tts)
     context.setContextProperty("ocrService", ocr)
+    context.setContextProperty("systemReduceMotion", reduce_motion)
     qml_main = files("py_crow_tool") / "qml" / "Main.qml"
     engine.load(QUrl.fromLocalFile(str(qml_main)))
     if not engine.rootObjects():
@@ -99,6 +124,7 @@ def main() -> int:
     quick_vm = TranslationViewModel(manager, settings, store, history, loop_runner)
     quick_engine = QQmlApplicationEngine()
     quick_engine.rootContext().setContextProperty("quickTranslateModel", quick_vm)
+    quick_engine.rootContext().setContextProperty("systemReduceMotion", reduce_motion)
     quick_qml = files("py_crow_tool") / "qml" / "QuickTranslatePopup.qml"
     quick_engine.load(QUrl.fromLocalFile(str(quick_qml)))
     quick_popup = quick_engine.rootObjects()[0] if quick_engine.rootObjects() else None
@@ -108,6 +134,7 @@ def main() -> int:
     capture_engine = QQmlApplicationEngine()
     capture_engine.addImageProvider("capture", screenshot_image_provider)
     capture_engine.rootContext().setContextProperty("captureController", capture_controller)
+    capture_engine.rootContext().setContextProperty("systemReduceMotion", reduce_motion)
     capture_qml = files("py_crow_tool") / "qml" / "CaptureOverlay.qml"
     capture_engine.load(QUrl.fromLocalFile(str(capture_qml)))
     capture_root = capture_engine.rootObjects()[0] if capture_engine.rootObjects() else None
