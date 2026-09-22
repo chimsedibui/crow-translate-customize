@@ -6,11 +6,11 @@ from dataclasses import asdict
 from PySide6.QtCore import Property, QObject, Signal, Slot, Qt, QKeyCombination
 from PySide6.QtGui import QKeySequence
 
+from py_crow_tool.bootstrap import build_providers
 from py_crow_tool.config import AppSettings, SettingsStore
 from py_crow_tool.core.languages import LANGUAGES
 from py_crow_tool.core.models import TranslationException, TranslationRequest
 from py_crow_tool.providers.manager import ProviderManager
-from py_crow_tool.providers.google_v2 import GoogleV2Provider
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 from py_crow_tool.services.history import HistoryStore
 
@@ -60,7 +60,7 @@ class TranslationViewModel(QObject):
         try:
             return self._manager.active_provider.display_name
         except TranslationException:
-            return "Configure Google Cloud in Settings"
+            return "Configure a translation service in Settings"
 
     @Property(str, notify=sourceTextChanged)
     def sourceText(self): return self._source_text
@@ -109,6 +109,20 @@ class TranslationViewModel(QObject):
     @Property("QVariantList", constant=True)
     def languages(self):
         return [{"code": code, "name": name} for code, name in LANGUAGES]
+
+    @Property("QVariantList", notify=statusChanged)
+    def providers(self):
+        """Every provider that currently has credentials, plus the automatic entry.
+
+        Only configured ones are offered: a picker listing a provider that cannot run
+        is a way to choose a translation that will fail.
+        """
+        entries = [{"code": "", "name": "Automatic"}]
+        entries += [
+            {"code": provider.id, "name": provider.display_name}
+            for provider in self._manager.configured_providers()
+        ]
+        return entries
 
     @Property("QVariantList", notify=historyChanged)
     def history(self):
@@ -255,7 +269,9 @@ class TranslationViewModel(QObject):
     @Slot()
     def savePreferences(self):
         self._loop_runner.submit(asyncio.to_thread(self._settings_store.save, self._settings))
-        old_providers = self._manager.replace([GoogleV2Provider(self._settings.v2_api_key)])
+        old_providers = self._manager.replace(
+            build_providers(self._settings), preferred=self._settings.preferred_provider
+        )
         self._loop_runner.submit(ProviderManager.close_providers(old_providers))
         self._set_status(self._provider_status())
 
@@ -325,6 +341,42 @@ class SettingsViewModel(QObject):
     def apiKey(self, value):
         if value != self.settings.google_v2.api_key:
             self.settings.google_v2.api_key = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def translationProvider(self): return self.settings.preferred_provider
+
+    @translationProvider.setter
+    def translationProvider(self, value):
+        if value != self.settings.preferred_provider:
+            self.settings.preferred_provider = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def azureApiKey(self): return self.settings.azure_openai.api_key
+
+    @azureApiKey.setter
+    def azureApiKey(self, value):
+        if value != self.settings.azure_openai.api_key:
+            self.settings.azure_openai.api_key = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def azureEndpoint(self): return self.settings.azure_openai.endpoint
+
+    @azureEndpoint.setter
+    def azureEndpoint(self, value):
+        if value != self.settings.azure_openai.endpoint:
+            self.settings.azure_openai.endpoint = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def azureDeployment(self): return self.settings.azure_openai.deployment
+
+    @azureDeployment.setter
+    def azureDeployment(self, value):
+        if value != self.settings.azure_openai.deployment:
+            self.settings.azure_openai.deployment = value
             self.settingsChanged.emit()
 
     @Property(bool, notify=settingsChanged)

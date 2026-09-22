@@ -69,8 +69,7 @@ class HttpProvider:
         except ValueError:
             return None
 
-    @staticmethod
-    def _raise_for_response(response: httpx.Response) -> None:
+    def _raise_for_response(self, response: httpx.Response) -> None:
         if response.is_success:
             return
         try:
@@ -86,5 +85,6 @@ class HttpProvider:
             kind = TranslationError.INVALID_REQUEST
         else:
             kind = TranslationError.SERVICE
-        raise TranslationException(kind, message or f"Google API returned HTTP {response.status_code}")
+        name = getattr(self, "display_name", None) or type(self).__name__
+        raise TranslationException(kind, message or f"{name} returned HTTP {response.status_code}")
 

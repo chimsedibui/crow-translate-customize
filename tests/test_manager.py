@@ -45,3 +45,41 @@ async def test_manager_does_not_fallback_after_request_failure():
         await ProviderManager([primary, secondary]).translate(TranslationRequest("x", "en"))
     assert primary.calls == 1
     assert secondary.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_preferred_provider_wins_over_the_google_default():
+    v2, azure = FakeProvider("google-v2"), FakeProvider("azure-openai")
+    manager = ProviderManager([v2, azure], preferred="azure-openai")
+    result = await manager.translate(TranslationRequest("x", "en"))
+    assert result.provider_id == "azure-openai"
+
+
+@pytest.mark.asyncio
+async def test_a_preference_naming_an_unconfigured_provider_falls_back():
+    """A stale preference must not be able to disable translation entirely."""
+    v2, azure = FakeProvider("google-v2"), FakeProvider("azure-openai", configured=False)
+    manager = ProviderManager([v2, azure], preferred="azure-openai")
+    result = await manager.translate(TranslationRequest("x", "en"))
+    assert result.provider_id == "google-v2"
+
+
+@pytest.mark.asyncio
+async def test_a_preference_naming_a_provider_that_no_longer_exists_falls_back():
+    v2 = FakeProvider("google-v2")
+    manager = ProviderManager([v2], preferred="removed-plugin")
+    result = await manager.translate(TranslationRequest("x", "en"))
+    assert result.provider_id == "google-v2"
+
+
+def test_configured_providers_lists_only_usable_ones():
+    manager = ProviderManager([FakeProvider("google-v2"), FakeProvider("azure-openai", configured=False)])
+    assert [provider.id for provider in manager.configured_providers()] == ["google-v2"]
+
+
+def test_replace_can_update_the_preference_and_leaves_it_alone_otherwise():
+    manager = ProviderManager([FakeProvider("google-v2")], preferred="azure-openai")
+    manager.replace([FakeProvider("google-v2")])
+    assert manager.preferred == "azure-openai"
+    manager.replace([FakeProvider("google-v2")], preferred="")
+    assert manager.preferred == ""

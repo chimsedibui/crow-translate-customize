@@ -20,7 +20,7 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--ocr-language", default=None, help="Language hint for OCR (e.g. vi, en); defaults to the configured OCR language")
     result.add_argument("-s", "--source", default="auto", help="Source language code")
     result.add_argument("-t", "--target", default="en", help="Target language code")
-    result.add_argument("-p", "--provider", help="Override automatic provider selection (e.g. google-v2, or a plugin's provider id)")
+    result.add_argument("-p", "--provider", help="Override automatic provider selection (google-v2, azure-openai, or a plugin's provider id)")
     result.add_argument("--detect", action="store_true", help="Only detect the source language")
     result.add_argument("--json", action="store_true", help="Print structured JSON")
     return result

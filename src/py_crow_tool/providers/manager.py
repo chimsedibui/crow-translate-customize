@@ -7,18 +7,28 @@ from py_crow_tool.core.provider import TranslationProvider
 
 
 class ProviderManager:
-    def __init__(self, providers: list[TranslationProvider]):
+    def __init__(self, providers: list[TranslationProvider], *, preferred: str = ""):
         self.providers = {provider.id: provider for provider in providers}
+        self.preferred = preferred
 
     @property
     def active_provider(self) -> TranslationProvider:
-        default = self.providers.get("google-v2")
-        if default and default.configured:
-            return default
+        # The user's choice first, then the historical default, then whatever is left.
+        # A preference that names an unconfigured provider falls through rather than
+        # failing: the setting outlives the credential it was chosen with, and refusing
+        # to translate because of a stale preference would be worse than quietly using
+        # the provider that still works.
+        for candidate in (self.preferred, "google-v2"):
+            provider = self.providers.get(candidate) if candidate else None
+            if provider and provider.configured:
+                return provider
         for provider in self.providers.values():
             if provider.configured:
                 return provider
         raise TranslationException(TranslationError.CONFIGURATION, "No translation provider is configured")
+
+    def configured_providers(self) -> list[TranslationProvider]:
+        return [provider for provider in self.providers.values() if provider.configured]
 
     def get(self, provider_id: str | None) -> TranslationProvider:
         if not provider_id:
@@ -47,9 +57,11 @@ class ProviderManager:
             if close:
                 await close()
 
-    def replace(self, providers: list[TranslationProvider]) -> list[TranslationProvider]:
+    def replace(self, providers: list[TranslationProvider], *, preferred: str | None = None) -> list[TranslationProvider]:
         old_providers = list(self.providers.values())
         self.providers = {provider.id: provider for provider in providers}
+        if preferred is not None:
+            self.preferred = preferred
         return old_providers
 
     @staticmethod

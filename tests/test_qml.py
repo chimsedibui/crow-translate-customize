@@ -157,3 +157,46 @@ def test_history_filter_and_restore(ui, qapp):
     assert model.translatedText == "xin chào"
     assert model.targetLanguage == "vi"
     assert not ui[5]
+
+
+def test_settings_dialog_round_trips_the_azure_fields(ui, qapp):
+    window, model, settings, *_ = ui
+    dialog = window.findChild(QObject, "settingsDialog")
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+    window.findChild(QObject, "azureEndpoint").setProperty("text", "https://res.openai.azure.com/openai/v1")
+    window.findChild(QObject, "azureDeployment").setProperty("text", "gpt-4o")
+    window.findChild(QObject, "azureKey").setProperty("text", "azure-secret")
+    QMetaObject.invokeMethod(dialog, "accept")
+    # Saved verbatim; the provider is what reduces the endpoint to its resource root.
+    assert settings.azureEndpoint == "https://res.openai.azure.com/openai/v1"
+    assert settings.azureDeployment == "gpt-4o"
+    assert settings.azureApiKey == "azure-secret"
+    assert not ui[5]
+
+
+def test_settings_dialog_discards_an_azure_draft_on_cancel(ui, qapp):
+    window, model, settings, *_ = ui
+    dialog = window.findChild(QObject, "settingsDialog")
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+    window.findChild(QObject, "azureKey").setProperty("text", "draft-secret")
+    QMetaObject.invokeMethod(dialog, "reject")
+    assert settings.azureApiKey == ""
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+    assert window.findChild(QObject, "azureKey").property("text") == ""
+    assert not ui[5]
+
+
+def test_provider_picker_offers_only_configured_services(ui, qapp):
+    """The picker is built from the manager, so an unconfigured service must not appear."""
+    window, model, settings, *_ = ui
+    assert [entry["code"] for entry in model.providers] == [""]
+    dialog = window.findChild(QObject, "settingsDialog")
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+    picker = window.findChild(QObject, "providerPicker")
+    assert picker.property("count") == 1
+    assert picker.property("currentValue") == ""
+    assert not ui[5]

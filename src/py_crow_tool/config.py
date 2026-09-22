@@ -17,6 +17,21 @@ class GoogleV2Settings:
 
 
 @dataclass(slots=True)
+class AzureOpenAiSettings:
+    """A chat deployment on the user's own Azure OpenAI resource.
+
+    Azure addresses a model by resource + deployment name rather than by a model id on a
+    shared endpoint, so all three of these travel together; api_version pins the request
+    shape and Azure dates rather than numbers them.
+    """
+
+    api_key: str = ""
+    endpoint: str = ""
+    deployment: str = ""
+    api_version: str = "2025-01-01-preview"
+
+
+@dataclass(slots=True)
 class OpenAiSettings:
     api_key: str = ""
     ocr_model: str = "gpt-5-nano"
@@ -40,8 +55,12 @@ class AppSettings:
     quick_translate_hotkey: str = "ctrl+alt+q"
     screenshot_hotkey: str = "ctrl+alt+r"
     ocr_language: str = "auto"
+    # Empty means "whichever provider is configured", which is what a single-provider
+    # install wants. It only has to be set once a second one is configured.
+    preferred_provider: str = ""
     google_v2: GoogleV2Settings = field(default_factory=GoogleV2Settings)
     openai: OpenAiSettings = field(default_factory=OpenAiSettings)
+    azure_openai: AzureOpenAiSettings = field(default_factory=AzureOpenAiSettings)
     enabled_plugins: list[str] = field(default_factory=list)
 
     @property
@@ -51,6 +70,22 @@ class AppSettings:
     @property
     def openai_api_key(self) -> str:
         return os.getenv("PY_CROW_OPENAI_API_KEY", self.openai.api_key)
+
+    @property
+    def azure_openai_api_key(self) -> str:
+        return os.getenv("PY_CROW_AZURE_OPENAI_API_KEY", self.azure_openai.api_key)
+
+    @property
+    def azure_openai_endpoint(self) -> str:
+        return os.getenv("PY_CROW_AZURE_OPENAI_ENDPOINT", self.azure_openai.endpoint)
+
+    @property
+    def azure_openai_deployment(self) -> str:
+        return os.getenv("PY_CROW_AZURE_OPENAI_DEPLOYMENT", self.azure_openai.deployment)
+
+    @property
+    def azure_openai_api_version(self) -> str:
+        return os.getenv("PY_CROW_AZURE_OPENAI_API_VERSION", self.azure_openai.api_version)
 
 
 class SettingsStore:
@@ -87,8 +122,10 @@ class SettingsStore:
             quick_translate_hotkey=str(data.get("quick_translate_hotkey", "ctrl+alt+q")),
             screenshot_hotkey=str(data.get("screenshot_hotkey", "ctrl+alt+r")),
             ocr_language=str(data.get("ocr_language", "auto")),
+            preferred_provider=str(data.get("preferred_provider", "")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
             openai=OpenAiSettings(**data.get("openai", {})),
+            azure_openai=AzureOpenAiSettings(**data.get("azure_openai", {})),
             enabled_plugins=list(data.get("enabled_plugins", [])),
         )
 

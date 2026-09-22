@@ -98,6 +98,36 @@ Alternatively, enter the key in Settings.
 
 Settings can contain a plaintext API key. Keep the settings file private and never commit credentials.
 
+## Configure Azure OpenAI
+
+Translation can also run through a chat model deployed on your own Azure OpenAI resource,
+as an alternative to Google Cloud. Azure addresses a model by resource plus deployment
+name rather than by a model id on a shared endpoint, so three values are required together:
+
+```powershell
+$env:PY_CROW_AZURE_OPENAI_ENDPOINT = "https://your-resource.openai.azure.com"
+$env:PY_CROW_AZURE_OPENAI_DEPLOYMENT = "gpt-4o"
+$env:PY_CROW_AZURE_OPENAI_API_KEY = "your-azure-key"
+py-crow-gui
+```
+
+`PY_CROW_AZURE_OPENAI_API_VERSION` overrides the default (`2025-01-01-preview`). The
+endpoint may be pasted in any of the forms the Azure portal shows — with or without a
+trailing `/openai` or `/openai/v1` — and is reduced to the resource root.
+
+The same three values can be entered in Settings instead, where a **Use for translation**
+picker chooses between the services that currently have credentials. The default,
+*Automatic*, prefers Google when both are configured. From the CLI, select it per call:
+
+```bash
+py-crow --provider azure-openai -t vi "Good morning"
+```
+
+Two costs are worth knowing before switching. A chat model is billed per token rather
+than per character, and an auto-detect translation spends two requests instead of one:
+the chat endpoint does not report the language it detected, so detection runs as its own
+call. Setting the source language explicitly avoids the second request.
+
 ## Background operation and global hotkeys
 
 The GUI keeps running in the system tray after its window is closed (`Show`, `Translate clipboard`, and `Quit` are available from the tray menu). Enable **Start with system** in Settings to launch it automatically at login.
@@ -131,7 +161,7 @@ py-crow --provider google-v2 -t en "Hola"
 |---|---|
 | `-s, --source` | Source language code; defaults to `auto`. |
 | `-t, --target` | Target language code; defaults to `en`. |
-| `-p, --provider` | Force `google-v2`, or a plugin's provider id. |
+| `-p, --provider` | Force `google-v2`, `azure-openai`, or a plugin's provider id. |
 | `--file` | Read UTF-8 source text from a file. |
 | `--stdin` | Read source text from standard input. |
 | `--ocr` | Recognize source text from an image. |

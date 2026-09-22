@@ -443,6 +443,9 @@ ApplicationWindow {
         // animation finishes, which would show a frame of stale fields first.
         onAboutToShow: {
             showKey.checked = false; apiKey.text = settingsModel.apiKey; startup.checked = settingsModel.startWithSystem
+            providerPicker.currentIndex = Math.max(0, translationModel.providers.findIndex(item => item.code === settingsModel.translationProvider))
+            azureEndpoint.text = settingsModel.azureEndpoint; azureDeployment.text = settingsModel.azureDeployment
+            showAzureKey.checked = false; azureKey.text = settingsModel.azureApiKey
             hotkey.sequence = settingsModel.quickTranslateHotkey; hotkey.error = ""
             showOpenaiKey.checked = false; openaiKey.text = settingsModel.openaiApiKey
             ocrLanguage.currentIndex = translationModel.languages.findIndex(item => item.code === settingsModel.ocrLanguage)
@@ -452,6 +455,11 @@ ApplicationWindow {
         onAboutToHide: { hotkey.recording = false; screenshotHotkey.recording = false }
         onAccepted: {
             settingsModel.apiKey = apiKey.text.trim()
+            settingsModel.azureEndpoint = azureEndpoint.text.trim()
+            settingsModel.azureDeployment = azureDeployment.text.trim()
+            settingsModel.azureApiKey = azureKey.text.trim()
+            // After the keys, so the picker is validated against what was just entered.
+            settingsModel.translationProvider = providerPicker.currentValue
             settingsModel.startWithSystem = startup.checked
             settingsModel.quickTranslateHotkey = hotkey.sequence
             settingsModel.openaiApiKey = openaiKey.text.trim()
@@ -469,6 +477,23 @@ ApplicationWindow {
                 Label { text: "API key" }
                 SettingsField { id: apiKey; objectName: "apiKey"; Layout.fillWidth: true; placeholderText: "Enter your API key"; echoMode: showKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "Google Cloud API key" }
                 CheckBox { id: showKey; text: "Show key"; checked: false }
+
+                Label { text: "Azure OpenAI"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted
+                    text: "Translate through a chat model on your own Azure resource instead. All three fields are required: Azure addresses a model by resource and deployment name, not by a model id." }
+                Label { text: "Endpoint" }
+                SettingsField { id: azureEndpoint; objectName: "azureEndpoint"; Layout.fillWidth: true; placeholderText: "https://your-resource.openai.azure.com"; Accessible.name: "Azure OpenAI endpoint" }
+                Label { text: "Deployment name" }
+                SettingsField { id: azureDeployment; objectName: "azureDeployment"; Layout.fillWidth: true; placeholderText: "gpt-4o"; Accessible.name: "Azure OpenAI deployment name" }
+                Label { text: "API key" }
+                SettingsField { id: azureKey; objectName: "azureKey"; Layout.fillWidth: true; placeholderText: "Enter your Azure OpenAI key"; echoMode: showAzureKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "Azure OpenAI API key" }
+                CheckBox { id: showAzureKey; text: "Show key"; checked: false }
+
+                Label { text: "Use for translation"; Layout.topMargin: 8 }
+                LanguagePicker { id: providerPicker; objectName: "providerPicker"; model: translationModel.providers; Accessible.name: "Translation provider" }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: Theme.sizeCaption
+                    text: "Automatic prefers Google. A service only appears here once its credentials are saved, so add a key first, then come back to pick it." }
+
                 Label { text: "Desktop"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
                 CheckBox { id: startup; objectName: "startup"; text: "Start with system" }
                 Label { text: "OCR"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
