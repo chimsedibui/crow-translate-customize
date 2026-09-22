@@ -8,3 +8,5 @@ dist/
 installer/Output/
 key.txt
 *.env
+.env.txt
+.env
