@@ -75,6 +75,22 @@ class OpenAiOcrProvider(HttpOcrProvider):
     def configured(self) -> bool:
         return bool(self.api_key)
 
+    # The three seams an Azure deployment differs by: it is addressed per deployment on
+    # the customer's own resource, dates its API in the query string, and authenticates
+    # with its own header. Everything else -- the prompt, the downscaling, the payload
+    # and the result shape -- is identical, so the subclass overrides only these.
+    def _endpoint_url(self) -> str:
+        return self.endpoint
+
+    def _query(self) -> dict[str, str] | None:
+        return None
+
+    def _auth_headers(self) -> dict[str, str]:
+        return {"Authorization": f"Bearer {self.api_key}"}
+
+    def _model_field(self) -> dict[str, str]:
+        return {"model": self.model}
+
     async def recognize(self, request: OcrRequest) -> OcrResult:
         if not self.configured:
             raise OcrException(OcrError.CONFIGURATION, "OpenAI API key is not configured")
@@ -95,7 +111,7 @@ class OpenAiOcrProvider(HttpOcrProvider):
             if request.language_hint and request.language_hint != "auto":
                 prompt += f" The text is expected to be in: {language_display_name(request.language_hint)}."
             payload = {
-                "model": self.model,
+                **self._model_field(),
                 "messages": [
                     {
                         "role": "user",
@@ -116,12 +132,18 @@ class OpenAiOcrProvider(HttpOcrProvider):
                     payload["reasoning_effort"] = self.reasoning_effort
             else:
                 payload["temperature"] = 0
-            headers = {"Authorization": f"Bearer {self.api_key}"}
-            response = await self._request("POST", self.endpoint, headers=headers, json=payload)
+            response = await self._request(
+                "POST", self._endpoint_url(), headers=self._auth_headers(), params=self._query(), json=payload
+            )
             self._raise_for_response(response)
             try:
                 body = response.json()
-                text = body["choices"][0]["message"]["content"].strip()
+                # Trailing spaces per line, not just at the ends: asked to preserve line
+                # breaks, these models reach for the markdown hard-break ("two spaces,
+                # newline"), which would otherwise land in the source pane and be sent on
+                # to the translator.
+                raw = body["choices"][0]["message"]["content"].strip()
+                text = "\n".join(line.rstrip() for line in raw.splitlines())
                 usage = body.get("usage", {})
                 return OcrResult(
                     text=text,

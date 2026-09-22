@@ -128,6 +128,16 @@ than per character, and an auto-detect translation spends two requests instead o
 the chat endpoint does not report the language it detected, so detection runs as its own
 call. Setting the source language explicitly avoids the second request.
 
+The same Azure deployment can also serve OCR. Settings has an **Engine** picker under
+OCR; pick *Azure OpenAI Vision* to read screenshots through the deployment configured
+above instead of through `api.openai.com`. The deployment has to be a vision model
+(gpt-4o and gpt-4o-mini are) — a text-only one answers HTTP 400 on the image. The
+resize, image-format and OCR-language settings apply to whichever engine is selected.
+
+Both pickers fall back rather than failing when the service they name loses its
+credentials, so a setting that outlives its key degrades to the service that still
+works instead of breaking translation or OCR outright.
+
 ## Background operation and global hotkeys
 
 The GUI keeps running in the system tray after its window is closed (`Show`, `Translate clipboard`, and `Quit` are available from the tray menu). Enable **Start with system** in Settings to launch it automatically at login.

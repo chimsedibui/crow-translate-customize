@@ -433,6 +433,22 @@ class SettingsViewModel(QObject):
             self.settings.ocr_language = value
             self.settingsChanged.emit()
 
+    @Property(str, notify=settingsChanged)
+    def ocrEngine(self): return self.settings.ocr_engine
+
+    @ocrEngine.setter
+    def ocrEngine(self, value):
+        if value != self.settings.ocr_engine:
+            self.settings.ocr_engine = value
+            self.settingsChanged.emit()
+
+    @Property("QVariantList", constant=True)
+    def ocrEngines(self):
+        return [
+            {"code": "openai", "name": "OpenAI Vision"},
+            {"code": "azure-openai", "name": "Azure OpenAI Vision"},
+        ]
+
     @Property(int, notify=settingsChanged)
     def ocrResizeResolution(self): return self.settings.openai.ocr_resize_resolution
 

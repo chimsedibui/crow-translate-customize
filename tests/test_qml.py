@@ -200,3 +200,21 @@ def test_provider_picker_offers_only_configured_services(ui, qapp):
     assert picker.property("count") == 1
     assert picker.property("currentValue") == ""
     assert not ui[5]
+
+
+def test_ocr_engine_picker_round_trips(ui, qapp):
+    window, model, settings, *_ = ui
+    dialog = window.findChild(QObject, "settingsDialog")
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+    picker = window.findChild(QObject, "ocrEngine")
+    assert picker.property("currentValue") == "openai"
+    picker.setProperty("currentIndex", 1)
+    assert picker.property("currentValue") == "azure-openai"
+    QMetaObject.invokeMethod(dialog, "accept")
+    assert settings.ocrEngine == "azure-openai"
+    # Reopening seeds the draft from the saved value rather than resetting to the first.
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+    assert window.findChild(QObject, "ocrEngine").property("currentValue") == "azure-openai"
+    assert not ui[5]

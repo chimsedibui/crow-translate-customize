@@ -55,6 +55,9 @@ class AppSettings:
     quick_translate_hotkey: str = "ctrl+alt+q"
     screenshot_hotkey: str = "ctrl+alt+r"
     ocr_language: str = "auto"
+    # Which reader the OCR flows use: "openai" for api.openai.com, "azure-openai" for a
+    # vision deployment on the user's own Azure resource.
+    ocr_engine: str = "openai"
     # Empty means "whichever provider is configured", which is what a single-provider
     # install wants. It only has to be set once a second one is configured.
     preferred_provider: str = ""
@@ -122,6 +125,7 @@ class SettingsStore:
             quick_translate_hotkey=str(data.get("quick_translate_hotkey", "ctrl+alt+q")),
             screenshot_hotkey=str(data.get("screenshot_hotkey", "ctrl+alt+r")),
             ocr_language=str(data.get("ocr_language", "auto")),
+            ocr_engine=str(data.get("ocr_engine", "openai")),
             preferred_provider=str(data.get("preferred_provider", "")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
             openai=OpenAiSettings(**data.get("openai", {})),

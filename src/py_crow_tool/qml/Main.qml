@@ -448,6 +448,7 @@ ApplicationWindow {
             showAzureKey.checked = false; azureKey.text = settingsModel.azureApiKey
             hotkey.sequence = settingsModel.quickTranslateHotkey; hotkey.error = ""
             showOpenaiKey.checked = false; openaiKey.text = settingsModel.openaiApiKey
+            ocrEngine.currentIndex = Math.max(0, settingsModel.ocrEngines.findIndex(item => item.code === settingsModel.ocrEngine))
             ocrLanguage.currentIndex = translationModel.languages.findIndex(item => item.code === settingsModel.ocrLanguage)
             resizeResolution.value = settingsModel.ocrResizeResolution
             screenshotHotkey.sequence = settingsModel.screenshotHotkey; screenshotHotkey.error = ""
@@ -463,6 +464,7 @@ ApplicationWindow {
             settingsModel.startWithSystem = startup.checked
             settingsModel.quickTranslateHotkey = hotkey.sequence
             settingsModel.openaiApiKey = openaiKey.text.trim()
+            settingsModel.ocrEngine = ocrEngine.currentValue
             settingsModel.ocrLanguage = ocrLanguage.currentValue
             settingsModel.ocrResizeResolution = resizeResolution.value
             settingsModel.screenshotHotkey = screenshotHotkey.sequence
@@ -498,7 +500,9 @@ ApplicationWindow {
                 CheckBox { id: startup; objectName: "startup"; text: "Start with system" }
                 Label { text: "OCR"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted
-                    text: "OCR reads text from a screenshot by sending the image to OpenAI's Vision API. Enter an API key below to enable it." }
+                    text: "OCR reads text from a screenshot by sending the image to a vision model: OpenAI directly, or the Azure deployment configured above. An Azure deployment has to be a vision model such as gpt-4o." }
+                Label { text: "Engine" }
+                LanguagePicker { id: ocrEngine; objectName: "ocrEngine"; model: settingsModel.ocrEngines; Accessible.name: "OCR engine" }
                 Label { text: "OpenAI API key" }
                 SettingsField { id: openaiKey; objectName: "openaiKey"; Layout.fillWidth: true; placeholderText: "Enter your OpenAI API key"; echoMode: showOpenaiKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "OpenAI API key" }
                 CheckBox { id: showOpenaiKey; text: "Show key"; checked: false }

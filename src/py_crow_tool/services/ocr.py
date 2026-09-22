@@ -8,6 +8,7 @@ from PySide6.QtGui import QGuiApplication
 
 from py_crow_tool.config import AppSettings
 from py_crow_tool.core.ocr_models import OcrException, OcrRequest
+from py_crow_tool.providers.azure_openai_ocr import AzureOpenAiOcrProvider
 from py_crow_tool.providers.openai_ocr import OpenAiOcrProvider
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 
@@ -26,9 +27,21 @@ class OcrService(QObject):
         super().__init__(parent)
         self._settings = settings
         self._loop_runner = loop_runner
+        # Both readers are built up front and kept: switching engines in Settings should
+        # not have to tear down and rebuild an httpx client, and each holds its own
+        # in-flight tasks that cancel_current() still has to be able to reach.
         self._openai = OpenAiOcrProvider(
             settings.openai_api_key,
             model=settings.openai.ocr_model,
+            max_dimension=settings.openai.ocr_resize_resolution,
+            image_format=settings.openai.ocr_image_format,
+            jpeg_quality=settings.openai.ocr_jpeg_quality,
+        )
+        self._azure = AzureOpenAiOcrProvider(
+            settings.azure_openai_api_key,
+            endpoint=settings.azure_openai_endpoint,
+            deployment=settings.azure_openai_deployment,
+            api_version=settings.azure_openai_api_version,
             max_dimension=settings.openai.ocr_resize_resolution,
             image_format=settings.openai.ocr_image_format,
             jpeg_quality=settings.openai.ocr_jpeg_quality,
@@ -39,14 +52,37 @@ class OcrService(QObject):
         self._latest_clipboard_request_id: str | None = None
         self._latest_region_request_id: str | None = None
 
+    @property
+    def _provider(self):
+        """The reader the current settings select.
+
+        An engine chosen but left unconfigured falls back rather than failing: the
+        setting outlives the credential it was chosen with, and an OCR that reports
+        "not configured" is less useful than one that quietly uses the key that works.
+        """
+        selected = self._azure if self._settings.ocr_engine == "azure-openai" else self._openai
+        other = self._openai if selected is self._azure else self._azure
+        if selected.configured:
+            return selected
+        if other.configured:
+            return other
+        # Neither is configured; hand back the selected one so its own error names the
+        # engine the user actually picked.
+        return selected
+
     def apply_settings(self) -> None:
-        """Re-read OCR settings the provider was constructed with, so a key or option
+        """Re-read OCR settings the providers were constructed with, so a key or option
         entered in Settings takes effect immediately instead of only after a restart."""
         self._openai.api_key = self._settings.openai_api_key.strip()
         self._openai.model = self._settings.openai.ocr_model
-        self._openai.max_dimension = self._settings.openai.ocr_resize_resolution
-        self._openai.image_format = self._settings.openai.ocr_image_format
-        self._openai.jpeg_quality = self._settings.openai.ocr_jpeg_quality
+        self._azure.api_key = self._settings.azure_openai_api_key.strip()
+        self._azure.endpoint = AzureOpenAiOcrProvider._normalize_endpoint(self._settings.azure_openai_endpoint)
+        self._azure.deployment = self._settings.azure_openai_deployment.strip()
+        self._azure.api_version = self._settings.azure_openai_api_version.strip() or "2025-01-01-preview"
+        for provider in (self._openai, self._azure):
+            provider.max_dimension = self._settings.openai.ocr_resize_resolution
+            provider.image_format = self._settings.openai.ocr_image_format
+            provider.jpeg_quality = self._settings.openai.ocr_jpeg_quality
 
     def _language_hint(self, language: str | None = None) -> str | None:
         return language or self._settings.ocr_language
@@ -87,7 +123,7 @@ class OcrService(QObject):
             if request_id == self._latest_clipboard_request_id:
                 self.failed.emit(message)
 
-        self._submit(request, self._openai, _ok, _err)
+        self._submit(request, self._provider, _ok, _err)
 
     def recognizeImageBytes(self, data: bytes, language: str | None = None) -> None:
         """Screenshot-region counterpart to recognizeClipboardImage(): same async/stale-result
@@ -104,20 +140,24 @@ class OcrService(QObject):
             if request_id == self._latest_region_request_id:
                 self.regionFailed.emit(message)
 
-        self._submit(request, self._openai, _ok, _err)
+        self._submit(request, self._provider, _ok, _err)
 
     def cancel_current(self) -> None:
         for request_id in (self._latest_clipboard_request_id, self._latest_region_request_id):
             if request_id is None:
                 continue
+            # Both, not just the selected one: a request may still be in flight on the
+            # engine that was selected when it started.
             self._openai.cancel(request_id)
+            self._azure.cancel(request_id)
 
     async def recognize_file(self, path: str, language: str | None = None) -> str:
         with open(path, "rb") as stream:
             data = stream.read()
         request = OcrRequest(image=data, language_hint=self._language_hint(language))
-        result = await self._openai.recognize(request)
+        result = await self._provider.recognize(request)
         return result.text
 
     async def close(self) -> None:
         await self._openai.close()
+        await self._azure.close()
