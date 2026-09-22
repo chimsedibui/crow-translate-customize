@@ -443,7 +443,6 @@ ApplicationWindow {
         // animation finishes, which would show a frame of stale fields first.
         onAboutToShow: {
             showKey.checked = false; apiKey.text = settingsModel.apiKey; startup.checked = settingsModel.startWithSystem
-            providerPicker.currentIndex = Math.max(0, translationModel.providers.findIndex(item => item.code === settingsModel.translationProvider))
             azureEndpoint.text = settingsModel.azureEndpoint; azureDeployment.text = settingsModel.azureDeployment
             showAzureKey.checked = false; azureKey.text = settingsModel.azureApiKey
             hotkey.sequence = settingsModel.quickTranslateHotkey; hotkey.error = ""
@@ -459,8 +458,6 @@ ApplicationWindow {
             settingsModel.azureEndpoint = azureEndpoint.text.trim()
             settingsModel.azureDeployment = azureDeployment.text.trim()
             settingsModel.azureApiKey = azureKey.text.trim()
-            // After the keys, so the picker is validated against what was just entered.
-            settingsModel.translationProvider = providerPicker.currentValue
             settingsModel.startWithSystem = startup.checked
             settingsModel.quickTranslateHotkey = hotkey.sequence
             settingsModel.openaiApiKey = openaiKey.text.trim()
@@ -474,38 +471,78 @@ ApplicationWindow {
             anchors.fill: parent; clip: true; contentWidth: availableWidth
             ColumnLayout {
                 width: parent.width; spacing: 12
-                Label { text: "Translation service"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold }
-                Label { Layout.fillWidth: true; text: "Connect a Google Cloud Translation API key to translate text."; wrapMode: Text.Wrap; color: Theme.muted }
-                Label { text: "API key" }
+                Label { text: "Translation"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold }
+                Label { Layout.fillWidth: true; text: "Text is translated with Google Cloud Translation. Connect an API key to enable it."; wrapMode: Text.Wrap; color: Theme.muted }
+                Label { text: "Google Cloud API key" }
                 SettingsField { id: apiKey; objectName: "apiKey"; Layout.fillWidth: true; placeholderText: "Enter your API key"; echoMode: showKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "Google Cloud API key" }
                 CheckBox { id: showKey; text: "Show key"; checked: false }
 
-                Label { text: "Azure OpenAI"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted
-                    text: "Translate through a chat model on your own Azure resource instead. All three fields are required: Azure addresses a model by resource and deployment name, not by a model id." }
-                Label { text: "Endpoint" }
-                SettingsField { id: azureEndpoint; objectName: "azureEndpoint"; Layout.fillWidth: true; placeholderText: "https://your-resource.openai.azure.com"; Accessible.name: "Azure OpenAI endpoint" }
-                Label { text: "Deployment name" }
-                SettingsField { id: azureDeployment; objectName: "azureDeployment"; Layout.fillWidth: true; placeholderText: "gpt-4o"; Accessible.name: "Azure OpenAI deployment name" }
-                Label { text: "API key" }
-                SettingsField { id: azureKey; objectName: "azureKey"; Layout.fillWidth: true; placeholderText: "Enter your Azure OpenAI key"; echoMode: showAzureKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "Azure OpenAI API key" }
-                CheckBox { id: showAzureKey; text: "Show key"; checked: false }
-
-                Label { text: "Use for translation"; Layout.topMargin: 8 }
-                LanguagePicker { id: providerPicker; objectName: "providerPicker"; model: translationModel.providers; Accessible.name: "Translation provider" }
-                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: Theme.sizeCaption
-                    text: "Automatic prefers Google. A service only appears here once its credentials are saved, so add a key first, then come back to pick it." }
-
                 Label { text: "Desktop"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
                 CheckBox { id: startup; objectName: "startup"; text: "Start with system" }
+
                 Label { text: "OCR"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted
-                    text: "OCR reads text from a screenshot by sending the image to a vision model: OpenAI directly, or the Azure deployment configured above. An Azure deployment has to be a vision model such as gpt-4o." }
-                Label { text: "Engine" }
-                LanguagePicker { id: ocrEngine; objectName: "ocrEngine"; model: settingsModel.ocrEngines; Accessible.name: "OCR engine" }
-                Label { text: "OpenAI API key" }
-                SettingsField { id: openaiKey; objectName: "openaiKey"; Layout.fillWidth: true; placeholderText: "Enter your OpenAI API key"; echoMode: showOpenaiKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "OpenAI API key" }
-                CheckBox { id: showOpenaiKey; text: "Show key"; checked: false }
+                    text: "OCR reads text from a screenshot by sending the image to a vision model. Pick one service — only the fields it needs are shown, so a key cannot end up at the wrong endpoint." }
+                Label { text: "Service" }
+                LanguagePicker { id: ocrEngine; objectName: "ocrEngine"; model: settingsModel.ocrEngines; Accessible.name: "OCR service" }
+
+                // Only the selected service's credentials are on screen. Both sets used to
+                // be visible at once, and the result was an Azure key pasted into the
+                // OpenAI field and sent to api.openai.com.
+                Label { visible: ocrEngine.currentValue === "openai"; text: "OpenAI API key" }
+                SettingsField {
+                    id: openaiKey; objectName: "openaiKey"; Layout.fillWidth: true
+                    visible: ocrEngine.currentValue === "openai"
+                    placeholderText: "sk-…"
+                    echoMode: showOpenaiKey.checked ? TextInput.Normal : TextInput.Password
+                    Accessible.name: "OpenAI API key"
+                }
+                CheckBox { id: showOpenaiKey; visible: ocrEngine.currentValue === "openai"; text: "Show key"; checked: false }
+
+                Label { visible: ocrEngine.currentValue === "azure-openai"; Layout.fillWidth: true; wrapMode: Text.Wrap
+                    color: Theme.muted; font.pixelSize: Theme.sizeCaption
+                    text: "All three are required. Azure addresses a model by resource and deployment name rather than by a model id, and the deployment must be a vision model such as gpt-4o." }
+                Label { visible: ocrEngine.currentValue === "azure-openai"; text: "Endpoint" }
+                SettingsField {
+                    id: azureEndpoint; objectName: "azureEndpoint"; Layout.fillWidth: true
+                    visible: ocrEngine.currentValue === "azure-openai"
+                    placeholderText: "https://your-resource.openai.azure.com"
+                    Accessible.name: "Azure OpenAI endpoint"
+                }
+                Label { visible: ocrEngine.currentValue === "azure-openai"; text: "Deployment name" }
+                SettingsField {
+                    id: azureDeployment; objectName: "azureDeployment"; Layout.fillWidth: true
+                    visible: ocrEngine.currentValue === "azure-openai"
+                    placeholderText: "gpt-4o"
+                    Accessible.name: "Azure OpenAI deployment name"
+                }
+                Label { visible: ocrEngine.currentValue === "azure-openai"; text: "Azure OpenAI API key" }
+                SettingsField {
+                    id: azureKey; objectName: "azureKey"; Layout.fillWidth: true
+                    visible: ocrEngine.currentValue === "azure-openai"
+                    placeholderText: "Enter your Azure OpenAI key"
+                    echoMode: showAzureKey.checked ? TextInput.Normal : TextInput.Password
+                    Accessible.name: "Azure OpenAI API key"
+                }
+                CheckBox { id: showAzureKey; visible: ocrEngine.currentValue === "azure-openai"; text: "Show key"; checked: false }
+
+                // Says what is missing before a screenshot is spent finding out.
+                Label {
+                    objectName: "ocrIncomplete"
+                    Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.danger
+                    visible: text.length > 0
+                    text: {
+                        if (ocrEngine.currentValue === "azure-openai") {
+                            let missing = []
+                            if (azureEndpoint.text.trim().length === 0) missing.push("endpoint")
+                            if (azureDeployment.text.trim().length === 0) missing.push("deployment name")
+                            if (azureKey.text.trim().length === 0) missing.push("API key")
+                            return missing.length ? "Azure OpenAI still needs its " + missing.join(", ") + "." : ""
+                        }
+                        return openaiKey.text.trim().length === 0 ? "OpenAI still needs its API key." : ""
+                    }
+                }
+
                 Label { text: "OCR language" }
                 LanguagePicker { id: ocrLanguage; objectName: "ocrLanguage"; model: translationModel.languages; Accessible.name: "OCR language" }
                 Label { text: "Resize resolution (longest side, px)" }

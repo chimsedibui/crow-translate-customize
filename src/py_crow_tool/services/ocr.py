@@ -54,21 +54,16 @@ class OcrService(QObject):
 
     @property
     def _provider(self):
-        """The reader the current settings select.
+        """The reader the chosen engine names -- chosen or not configured, no substitute.
 
-        An engine chosen but left unconfigured falls back rather than failing: the
-        setting outlives the credential it was chosen with, and an OCR that reports
-        "not configured" is less useful than one that quietly uses the key that works.
+        This deliberately does not fall back to the other engine. It used to, on the
+        reasoning that a setting outliving its credential should not disable OCR; in
+        practice that meant an Azure key with no endpoint fell through to OpenAI, which
+        rejected the Azure key, and the user who had picked Azure was shown an error
+        about an OpenAI key they had never meant to use. Sending one service's
+        credentials to another is never the helpful reading of a half-filled form.
         """
-        selected = self._azure if self._settings.ocr_engine == "azure-openai" else self._openai
-        other = self._openai if selected is self._azure else self._azure
-        if selected.configured:
-            return selected
-        if other.configured:
-            return other
-        # Neither is configured; hand back the selected one so its own error names the
-        # engine the user actually picked.
-        return selected
+        return self._azure if self._settings.ocr_engine == "azure-openai" else self._openai
 
     def apply_settings(self) -> None:
         """Re-read OCR settings the providers were constructed with, so a key or option

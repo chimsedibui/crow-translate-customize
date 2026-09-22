@@ -110,20 +110,6 @@ class TranslationViewModel(QObject):
     def languages(self):
         return [{"code": code, "name": name} for code, name in LANGUAGES]
 
-    @Property("QVariantList", notify=statusChanged)
-    def providers(self):
-        """Every provider that currently has credentials, plus the automatic entry.
-
-        Only configured ones are offered: a picker listing a provider that cannot run
-        is a way to choose a translation that will fail.
-        """
-        entries = [{"code": "", "name": "Automatic"}]
-        entries += [
-            {"code": provider.id, "name": provider.display_name}
-            for provider in self._manager.configured_providers()
-        ]
-        return entries
-
     @Property("QVariantList", notify=historyChanged)
     def history(self):
         return [asdict(item) for item in self._history.load()]
@@ -341,15 +327,6 @@ class SettingsViewModel(QObject):
     def apiKey(self, value):
         if value != self.settings.google_v2.api_key:
             self.settings.google_v2.api_key = value
-            self.settingsChanged.emit()
-
-    @Property(str, notify=settingsChanged)
-    def translationProvider(self): return self.settings.preferred_provider
-
-    @translationProvider.setter
-    def translationProvider(self, value):
-        if value != self.settings.preferred_provider:
-            self.settings.preferred_provider = value
             self.settingsChanged.emit()
 
     @Property(str, notify=settingsChanged)

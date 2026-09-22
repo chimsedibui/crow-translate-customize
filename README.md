@@ -98,45 +98,59 @@ Alternatively, enter the key in Settings.
 
 Settings can contain a plaintext API key. Keep the settings file private and never commit credentials.
 
-## Configure Azure OpenAI
+## Configure OCR
 
-Translation can also run through a chat model deployed on your own Azure OpenAI resource,
-as an alternative to Google Cloud. Azure addresses a model by resource plus deployment
-name rather than by a model id on a shared endpoint, so three values are required together:
+OCR reads text out of a screenshot by sending the image to a vision model. Two services
+can do it, and exactly one is active at a time — Settings shows only the fields the
+selected one needs, so a key cannot be left sitting in the other service's box.
+
+**OpenAI** needs only an API key, entered in Settings or as an environment variable:
+
+```powershell
+$env:PY_CROW_OPENAI_API_KEY = "sk-..."
+```
+
+**Azure OpenAI** runs the same job on a deployment in your own resource. Azure addresses
+a model by resource plus deployment name rather than by a model id on a shared endpoint,
+so all three values are required together — a key on its own is not enough:
 
 ```powershell
 $env:PY_CROW_AZURE_OPENAI_ENDPOINT = "https://your-resource.openai.azure.com"
 $env:PY_CROW_AZURE_OPENAI_DEPLOYMENT = "gpt-4o"
 $env:PY_CROW_AZURE_OPENAI_API_KEY = "your-azure-key"
-py-crow-gui
 ```
 
 `PY_CROW_AZURE_OPENAI_API_VERSION` overrides the default (`2025-01-01-preview`). The
 endpoint may be pasted in any of the forms the Azure portal shows — with or without a
-trailing `/openai` or `/openai/v1` — and is reduced to the resource root.
+trailing `/openai` or `/openai/v1` — and is reduced to the resource root. The deployment
+must be a vision model; gpt-4o and gpt-4o-mini are, and a text-only one answers HTTP 400
+on the image.
 
-The same three values can be entered in Settings instead, where a **Use for translation**
-picker chooses between the services that currently have credentials. The default,
-*Automatic*, prefers Google when both are configured. From the CLI, select it per call:
+The selected service is the one that runs. Nothing falls back to the other: credentials
+are not interchangeable, and sending an Azure key to `api.openai.com` produces an
+authentication error about a service the user never chose. An incomplete form says which
+field is missing before a screenshot is spent finding out.
+
+The resize, image-format and OCR-language settings apply to whichever service is selected.
+
+Note that the app reads keys from Settings and from `PY_CROW_*` environment variables
+only. It does not read a `.env` file.
+
+## Translating with Azure OpenAI (CLI only)
+
+`AzureOpenAiProvider` can also translate, but the GUI is fixed to Google Cloud: having
+two translation services on screen was a source of confusion, and a chat model is billed
+per token rather than per character. It remains reachable per call from the CLI, using
+the Azure values above:
 
 ```bash
 py-crow --provider azure-openai -t vi "Good morning"
 ```
 
-Two costs are worth knowing before switching. A chat model is billed per token rather
-than per character, and an auto-detect translation spends two requests instead of one:
-the chat endpoint does not report the language it detected, so detection runs as its own
-call. Setting the source language explicitly avoids the second request.
-
-The same Azure deployment can also serve OCR. Settings has an **Engine** picker under
-OCR; pick *Azure OpenAI Vision* to read screenshots through the deployment configured
-above instead of through `api.openai.com`. The deployment has to be a vision model
-(gpt-4o and gpt-4o-mini are) — a text-only one answers HTTP 400 on the image. The
-resize, image-format and OCR-language settings apply to whichever engine is selected.
-
-Both pickers fall back rather than failing when the service they name loses its
-credentials, so a setting that outlives its key degrades to the service that still
-works instead of breaking translation or OCR outright.
+Setting `preferred_provider = "azure-openai"` in `settings.toml` makes it the default for
+the GUI too. An auto-detect translation then spends two requests instead of one: the chat
+endpoint does not report the language it detected, so detection runs as its own call.
+Setting the source language explicitly avoids the second request.
 
 ## Background operation and global hotkeys
 

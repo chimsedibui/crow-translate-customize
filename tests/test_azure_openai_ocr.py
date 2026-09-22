@@ -155,10 +155,34 @@ def test_service_uses_the_selected_engine():
     assert service._provider.id == "openai-vision"
 
 
-def test_selecting_an_unconfigured_engine_falls_back_to_the_one_that_works():
-    """A stale engine choice must not be able to disable OCR entirely."""
-    service = OcrService(_settings("azure-openai", openai_key="openai", azure_key=""))
-    assert service._provider.id == "openai-vision"
+@pytest.mark.asyncio
+async def test_a_half_filled_azure_form_never_reaches_openai():
+    """The bug this replaced a fallback for.
+
+    Engine set to Azure, Azure key filled in, endpoint and deployment left blank, and
+    an OpenAI key present -- which in practice was the same Azure key pasted twice.
+    The old fallback sent it to api.openai.com, which rejected it, so the user who had
+    chosen Azure was told their OpenAI key was wrong.
+    """
+    settings = _settings("azure-openai", openai_key="same-key", azure_key="same-key")
+    settings.azure_openai.endpoint = ""
+    settings.azure_openai.deployment = ""
+    service = OcrService(settings)
+
+    assert service._provider.id == "azure-openai-vision"
+    with pytest.raises(OcrException) as error:
+        await service._provider.recognize(OcrRequest(image=_png()))
+    assert error.value.kind == OcrError.CONFIGURATION
+    assert "endpoint" in str(error.value)
+    assert "deployment" in str(error.value)
+    # And nothing about OpenAI, which the user never chose.
+    assert "OpenAI API key" not in str(error.value)
+
+
+def test_the_chosen_engine_is_used_even_when_only_the_other_has_credentials():
+    """No cross-engine substitution in either direction: credentials are not interchangeable."""
+    assert OcrService(_settings("azure-openai", openai_key="openai"))._provider.id == "azure-openai-vision"
+    assert OcrService(_settings("openai", azure_key="azure"))._provider.id == "openai-vision"
 
 
 def test_with_nothing_configured_the_error_names_the_engine_the_user_picked():
@@ -187,11 +211,3 @@ def test_resize_settings_apply_to_both_engines():
     service.apply_settings()
     assert service._openai.max_dimension == 640
     assert service._azure.max_dimension == 640
-
-
-def test_the_fallback_works_in_both_directions():
-    """Symmetry matters: either engine can be the one that still has a key."""
-    azure_only = OcrService(_settings("openai", azure_key="azure"))
-    assert azure_only._provider.id == "azure-openai-vision"
-    openai_only = OcrService(_settings("azure-openai", openai_key="openai"))
-    assert openai_only._provider.id == "openai-vision"

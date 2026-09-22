@@ -159,11 +159,86 @@ def test_history_filter_and_restore(ui, qapp):
     assert not ui[5]
 
 
+def _select_engine(window, qapp, code):
+    picker = window.findChild(QObject, "ocrEngine")
+    picker.setProperty("currentIndex", 0 if code == "openai" else 1)
+    qapp.processEvents()
+    assert picker.property("currentValue") == code
+    return picker
+
+
+def test_only_the_selected_ocr_service_shows_its_fields(ui, qapp):
+    """The two credential sets are mutually exclusive on screen.
+
+    Both used to be visible at once, which is how an Azure key ended up in the OpenAI
+    field and was sent to api.openai.com.
+    """
+    window, *_ = ui
+    dialog = window.findChild(QObject, "settingsDialog")
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+
+    openai_only = ["openaiKey"]
+    azure_only = ["azureEndpoint", "azureDeployment", "azureKey"]
+
+    _select_engine(window, qapp, "openai")
+    for name in openai_only:
+        assert window.findChild(QObject, name).property("visible") is True, name
+    for name in azure_only:
+        assert window.findChild(QObject, name).property("visible") is False, name
+
+    _select_engine(window, qapp, "azure-openai")
+    for name in openai_only:
+        assert window.findChild(QObject, name).property("visible") is False, name
+    for name in azure_only:
+        assert window.findChild(QObject, name).property("visible") is True, name
+    assert not ui[5]
+
+
+def test_an_incomplete_azure_form_names_what_is_missing(ui, qapp):
+    """The exact failure that shipped: a key filled in, endpoint and deployment blank."""
+    window, *_ = ui
+    dialog = window.findChild(QObject, "settingsDialog")
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+    _select_engine(window, qapp, "azure-openai")
+    warning = window.findChild(QObject, "ocrIncomplete")
+
+    window.findChild(QObject, "azureKey").setProperty("text", "a-key")
+    qapp.processEvents()
+    assert warning.property("visible") is True
+    assert "endpoint" in warning.property("text")
+    assert "deployment name" in warning.property("text")
+    assert "API key" not in warning.property("text")
+
+    window.findChild(QObject, "azureEndpoint").setProperty("text", "https://r.openai.azure.com")
+    window.findChild(QObject, "azureDeployment").setProperty("text", "gpt-4o")
+    qapp.processEvents()
+    assert warning.property("visible") is False
+    assert not ui[5]
+
+
+def test_the_openai_service_warns_about_its_own_missing_key(ui, qapp):
+    window, *_ = ui
+    dialog = window.findChild(QObject, "settingsDialog")
+    QMetaObject.invokeMethod(dialog, "open")
+    qapp.processEvents()
+    _select_engine(window, qapp, "openai")
+    warning = window.findChild(QObject, "ocrIncomplete")
+    assert warning.property("visible") is True
+    assert "OpenAI" in warning.property("text")
+    window.findChild(QObject, "openaiKey").setProperty("text", "sk-test")
+    qapp.processEvents()
+    assert warning.property("visible") is False
+    assert not ui[5]
+
+
 def test_settings_dialog_round_trips_the_azure_fields(ui, qapp):
     window, model, settings, *_ = ui
     dialog = window.findChild(QObject, "settingsDialog")
     QMetaObject.invokeMethod(dialog, "open")
     qapp.processEvents()
+    _select_engine(window, qapp, "azure-openai")
     window.findChild(QObject, "azureEndpoint").setProperty("text", "https://res.openai.azure.com/openai/v1")
     window.findChild(QObject, "azureDeployment").setProperty("text", "gpt-4o")
     window.findChild(QObject, "azureKey").setProperty("text", "azure-secret")
@@ -172,6 +247,7 @@ def test_settings_dialog_round_trips_the_azure_fields(ui, qapp):
     assert settings.azureEndpoint == "https://res.openai.azure.com/openai/v1"
     assert settings.azureDeployment == "gpt-4o"
     assert settings.azureApiKey == "azure-secret"
+    assert settings.ocrEngine == "azure-openai"
     assert not ui[5]
 
 
@@ -180,25 +256,14 @@ def test_settings_dialog_discards_an_azure_draft_on_cancel(ui, qapp):
     dialog = window.findChild(QObject, "settingsDialog")
     QMetaObject.invokeMethod(dialog, "open")
     qapp.processEvents()
+    _select_engine(window, qapp, "azure-openai")
     window.findChild(QObject, "azureKey").setProperty("text", "draft-secret")
     QMetaObject.invokeMethod(dialog, "reject")
     assert settings.azureApiKey == ""
+    assert settings.ocrEngine == "openai"
     QMetaObject.invokeMethod(dialog, "open")
     qapp.processEvents()
     assert window.findChild(QObject, "azureKey").property("text") == ""
-    assert not ui[5]
-
-
-def test_provider_picker_offers_only_configured_services(ui, qapp):
-    """The picker is built from the manager, so an unconfigured service must not appear."""
-    window, model, settings, *_ = ui
-    assert [entry["code"] for entry in model.providers] == [""]
-    dialog = window.findChild(QObject, "settingsDialog")
-    QMetaObject.invokeMethod(dialog, "open")
-    qapp.processEvents()
-    picker = window.findChild(QObject, "providerPicker")
-    assert picker.property("count") == 1
-    assert picker.property("currentValue") == ""
     assert not ui[5]
 
 
@@ -209,8 +274,7 @@ def test_ocr_engine_picker_round_trips(ui, qapp):
     qapp.processEvents()
     picker = window.findChild(QObject, "ocrEngine")
     assert picker.property("currentValue") == "openai"
-    picker.setProperty("currentIndex", 1)
-    assert picker.property("currentValue") == "azure-openai"
+    _select_engine(window, qapp, "azure-openai")
     QMetaObject.invokeMethod(dialog, "accept")
     assert settings.ocrEngine == "azure-openai"
     # Reopening seeds the draft from the saved value rather than resetting to the first.

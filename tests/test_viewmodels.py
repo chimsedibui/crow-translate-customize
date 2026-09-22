@@ -283,29 +283,6 @@ def test_report_ocr_error_preserves_source(qapp, tmp_path):
     finally:
         _stop_runner(runner)
 
-
-def test_providers_lists_automatic_plus_each_configured_service(qapp, tmp_path):
-    class Unconfigured(FakeProvider):
-        id = "azure-openai"
-        display_name = "Azure OpenAI"
-        configured = False
-
-    runner = AsyncLoopRunner()
-    try:
-        manager = ProviderManager([FakeProvider(), Unconfigured()])
-        settings = AppSettings()
-        vm = TranslationViewModel(
-            manager, settings, SettingsStore(tmp_path / "s.toml"), HistoryStore(tmp_path / "h.json"), runner
-        )
-        assert vm.providers == [{"code": "", "name": "Automatic"}, {"code": "fake", "name": "Fake"}]
-
-        # Once it has credentials it joins the list, so the picker can offer it.
-        Unconfigured.configured = True
-        assert [entry["code"] for entry in vm.providers] == ["", "fake", "azure-openai"]
-    finally:
-        _stop_runner(runner)
-
-
 def test_status_line_names_the_preferred_provider(qapp, tmp_path):
     class Azure(FakeProvider):
         id = "azure-openai"
