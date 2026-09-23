@@ -2,4 +2,5 @@ singleton Theme 1.0 Theme.qml
 ActionButton 1.0 ActionButton.qml
 CaptureOverlayWindow 1.0 CaptureOverlayWindow.qml
 SkeletonLines 1.0 SkeletonLines.qml
+GlassSurface 1.0 GlassSurface.qml
 Surface 1.0 Surface.qml

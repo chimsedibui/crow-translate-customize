@@ -22,8 +22,20 @@ Button {
     icon.source: symbol ? "icons/" + symbol + ".svg" : ""
     icon.width: Theme.iconSize
     icon.height: Theme.iconSize
-    icon.color: !enabled ? Theme.inkDisabled : primary ? Theme.accentInk : Theme.muted
-    palette.buttonText: !enabled ? Theme.inkDisabled : primary ? Theme.accentInk : Theme.ink
+    // Set by callers whose button sits on a glass surface. There, "less prominent"
+    // cannot be bought by going darker: muted and inkDisabled both fall under the
+    // 3:1 that non-text UI components are held to, and the icon stops being visible
+    // rather than becoming quiet. The dimmer step still exists on glass, it is just
+    // a much smaller one -- glassMuted against ink instead of muted against ink.
+    property bool onGlass: false
+
+    icon.color: !enabled
+        ? (onGlass ? Theme.glassMuted : Theme.inkDisabled)
+        : primary ? Theme.accentInk
+        : onGlass ? Theme.ink : Theme.muted
+    palette.buttonText: !enabled
+        ? (onGlass ? Theme.glassMuted : Theme.inkDisabled)
+        : primary ? Theme.accentInk : Theme.ink
 
     // Hover borrows a pixel and the press gives it straight back, so a click always
     // lands the button where it started and never leaves the row looking nudged. It is

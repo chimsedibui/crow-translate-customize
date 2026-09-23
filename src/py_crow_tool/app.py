@@ -12,6 +12,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from py_crow_tool.bootstrap import build_services
 from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, SingleInstance, TtsService
+from py_crow_tool.services.backdrop import BackdropController, BackdropImageProvider
 from py_crow_tool.services.capture import CaptureController, ScreenshotImageProvider
 from py_crow_tool.viewmodels import SettingsViewModel, TranslationViewModel
 
@@ -123,6 +124,13 @@ def main() -> int:
 
     quick_vm = TranslationViewModel(manager, settings, store, history, loop_runner)
     quick_engine = QQmlApplicationEngine()
+    # The popup is glass, and glass needs to know what is behind it. Nothing can
+    # read the pixels under a window that is already up, so the controller grabs
+    # the desktop the instant before the popup shows. See services/backdrop.py.
+    backdrop_image_provider = BackdropImageProvider()
+    backdrop_controller = BackdropController(backdrop_image_provider)
+    quick_engine.addImageProvider("backdrop", backdrop_image_provider)
+    quick_engine.rootContext().setContextProperty("backdropController", backdrop_controller)
     quick_engine.rootContext().setContextProperty("quickTranslateModel", quick_vm)
     quick_engine.rootContext().setContextProperty("systemReduceMotion", reduce_motion)
     quick_qml = files("py_crow_tool") / "qml" / "QuickTranslatePopup.qml"

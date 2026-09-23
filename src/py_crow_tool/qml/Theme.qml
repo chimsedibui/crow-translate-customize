@@ -83,6 +83,58 @@ QtObject {
     // affordance a keyboard-only user gets, and it clears 3:1 on every surface it lands on.
     readonly property color focusRing: accent
 
+    // Glass. A surface whose fill is a picture of the user's desktop rather than one
+    // of ours, which is precisely the case the contrast rules above cannot cover: the
+    // palette clears AA "against the surfaces each colour is used on", and a glass
+    // surface is not one of them. The guarantee is re-established at runtime instead,
+    // by holding the surface's luminance inside a band derived from the text.
+    //
+    // Only `ink` survives that. Measured against this palette in the dark scheme,
+    // muted, accent, danger and placeholder each demand a surface at roughly 0.037
+    // luminance or below -- black, with no backdrop left to see. So glass carries ink
+    // and nothing else; anything with a semantic colour sits on an opaque chip.
+    // Working and measurements: prototypes/liquid-glass/README.md.
+    readonly property int radiusGlass: 16
+    readonly property int glassThickness: 20      // bevel depth, px
+    readonly property int glassRefraction: 34     // how far the bevel drags the backdrop
+    readonly property real glassChroma: 0.22
+    readonly property real glassSpecular: 0.75
+    readonly property real glassSaturation: 1.15
+    readonly property real glassTintAmount: 0.06
+    readonly property color glassTint: dark ? "#8fd8ff" : "#ffffff"
+
+    // The secondary ink for things standing on glass. `muted` manages 2.10:1 against
+    // a surface at the ceiling, which misses even the 3:1 that non-text UI components
+    // are held to, so an icon drawn in it is not a quiet icon -- it is an invisible
+    // one. These clear 3.5:1 while staying clearly dimmer than ink, which is the whole
+    // job muted was doing. Text still gets ink: 3:1 is for icons and borders, not words.
+    readonly property color glassMuted: dark ? "#bed2e2" : "#343d47"
+
+    readonly property real glassContrastTarget: 4.5
+    // Aimed above the target on purpose. The shader's float result is quantised to
+    // 8 bits on the way to the screen, and a bound set at exactly 4.5:1 lands half
+    // its pixels a rounding step under it -- measured 4.47:1 to 4.52:1. This is the
+    // width of one quantisation step, not a margin of taste.
+    readonly property real glassContrastHeadroom: 0.15
+    readonly property real _glassTarget: glassContrastTarget + glassContrastHeadroom
+
+    function _linearChannel(c) {
+        return c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
+    }
+    function relativeLuminance(c) {
+        return 0.2126 * _linearChannel(c.r) + 0.7152 * _linearChannel(c.g) + 0.0722 * _linearChannel(c.b)
+    }
+    // The band a glass surface has to stay inside for `text` to clear AA on it. Which
+    // end applies follows the scheme, not the text's own lightness: in the dark scheme
+    // every role is lighter than its surface, including ones whose luminance is well
+    // under half.
+    function glassCeiling(text) {
+        return (relativeLuminance(text) + 0.05) / _glassTarget - 0.05
+    }
+    function glassFloor(text) {
+        return _glassTarget * (relativeLuminance(text) + 0.05) - 0.05
+    }
+
     // Capture overlay. Always dark in both schemes: it sits on a dimmed screenshot,
     // not on one of our surfaces.
     readonly property color scrim: "#000000a6"
