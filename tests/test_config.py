@@ -41,3 +41,13 @@ def test_theme_round_trips_and_defaults_to_following_the_system(tmp_path):
     settings = AppSettings(theme="light")
     store.save(settings)
     assert store.load().theme == "light"
+
+
+def test_quick_translate_target_defaults_to_vietnamese_even_when_the_main_target_is_english(tmp_path):
+    from py_crow_tool.config import SettingsStore
+
+    path = tmp_path / "settings.toml"
+    path.write_text('target_language = "en"\n', encoding="utf-8")
+    loaded = SettingsStore(path).load()
+    assert loaded.target_language == "en"
+    assert loaded.quick_translate_target == "vi"

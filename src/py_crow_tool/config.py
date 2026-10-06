@@ -52,6 +52,10 @@ class AppSettings:
     version: int = 1
     source_language: str = "auto"
     target_language: str = "vi"
+    # The quick-translate popup's own target. It used to borrow target_language, which
+    # is whatever the main window was last pointed at: translate one reply into English
+    # there, and every hotkey translation afterwards came out in English too.
+    quick_translate_target: str = "vi"
     auto_translate: bool = False
     history_limit: int = 100
     start_with_system: bool = False
@@ -126,6 +130,7 @@ class SettingsStore:
             version=int(data.get("version", 1)),
             source_language=str(data.get("source_language", "auto")),
             target_language=str(data.get("target_language", "vi")),
+            quick_translate_target=str(data.get("quick_translate_target", "vi")),
             auto_translate=bool(data.get("auto_translate", False)),
             history_limit=max(0, int(data.get("history_limit", 100))),
             start_with_system=bool(data.get("start_with_system", False)),

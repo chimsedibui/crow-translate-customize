@@ -473,6 +473,7 @@ ApplicationWindow {
             azureEndpoint.text = settingsModel.azureEndpoint; azureDeployment.text = settingsModel.azureDeployment
             showAzureKey.checked = false; azureKey.text = settingsModel.azureApiKey
             hotkey.sequence = settingsModel.quickTranslateHotkey; hotkey.error = ""
+            quickTarget.currentIndex = Math.max(0, translationModel.languages.slice(1).findIndex(item => item.code === settingsModel.quickTranslateTarget))
             showOpenaiKey.checked = false; openaiKey.text = settingsModel.openaiApiKey
             ocrEngine.currentIndex = Math.max(0, settingsModel.ocrEngines.findIndex(item => item.code === settingsModel.ocrEngine))
             ocrLanguage.currentIndex = translationModel.languages.findIndex(item => item.code === settingsModel.ocrLanguage)
@@ -487,6 +488,7 @@ ApplicationWindow {
             settingsModel.azureApiKey = azureKey.text.trim()
             settingsModel.startWithSystem = startup.checked
             settingsModel.quickTranslateHotkey = hotkey.sequence
+            settingsModel.quickTranslateTarget = quickTarget.currentValue
             settingsModel.openaiApiKey = openaiKey.text.trim()
             settingsModel.ocrEngine = ocrEngine.currentValue
             settingsModel.ocrLanguage = ocrLanguage.currentValue
@@ -666,6 +668,10 @@ ApplicationWindow {
                     Keys.onReleased: function(event) { event.accepted = true }
                 }
                 Label { Layout.fillWidth: true; visible: hotkey.error.length > 0; text: hotkey.error; wrapMode: Text.Wrap; color: Theme.danger }
+                Label { text: "Quick-translate into" }
+                // Its own setting, not the main window's target: pointing the main window
+                // at English to write one reply must not turn every hotkey lookup English.
+                LanguagePicker { id: quickTarget; objectName: "quickTarget"; model: translationModel.languages.slice(1); Accessible.name: "Quick translate target language" }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; text: "Select text in another app and press this shortcut. Shortcut changes apply after restarting PyCrow." }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: Theme.sizeCaption; text: "Your API key is stored locally in your user settings file." }
             }

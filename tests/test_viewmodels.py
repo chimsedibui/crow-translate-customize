@@ -318,3 +318,28 @@ def test_apply_theme_pins_light_or_dark_and_releases_for_system(monkeypatch):
     for mode in ("light", "dark", "system", "anything-else"):
         apply_theme(mode)
     assert calls == [Qt.ColorScheme.Light, Qt.ColorScheme.Dark, "unset", "unset"]
+
+
+def test_quick_translate_keeps_its_own_target_whatever_the_main_window_last_used(qapp, tmp_path):
+    runner = AsyncLoopRunner()
+    try:
+        provider = FakeProvider()
+        manager = ProviderManager([provider])
+        # The state that shipped the bug: the main window was last pointed at English.
+        settings = AppSettings(source_language="vi", target_language="en")
+        store = SettingsStore(tmp_path / "settings.toml")
+        history = HistoryStore(tmp_path / "history.json", limit=10)
+        main = TranslationViewModel(manager, settings, store, history, runner)
+        quick = TranslationViewModel(manager, settings, store, history, runner, quick=True)
+        assert quick.targetLanguage == "vi"
+        assert quick.sourceLanguage == "auto"
+
+        # Neither direction leaks: the main window does not move the popup, and the
+        # popup does not move the main window.
+        main.targetLanguage = "ja"
+        quick.targetLanguage = "ko"
+        assert settings.target_language == "ja"
+        assert settings.quick_translate_target == "vi"
+        assert main.targetLanguage == "ja"
+    finally:
+        _stop_runner(runner)

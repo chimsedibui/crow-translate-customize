@@ -38,8 +38,14 @@ class TranslationViewModel(QObject):
         history: HistoryStore,
         loop_runner: AsyncLoopRunner,
         parent=None,
+        *,
+        quick: bool = False,
     ):
         super().__init__(parent)
+        # The quick-translate popup's model: it always auto-detects, translates into
+        # quick_translate_target, and never writes its languages back into the main
+        # window's settings.
+        self._quick = quick
         self._manager = manager
         self._settings = settings
         self._settings_store = settings_store
@@ -47,8 +53,8 @@ class TranslationViewModel(QObject):
         self._loop_runner = loop_runner
         self._source_text = ""
         self._translated_text = ""
-        self._source_language = settings.source_language
-        self._target_language = settings.target_language
+        self._source_language = "auto" if quick else settings.source_language
+        self._target_language = settings.quick_translate_target if quick else settings.target_language
         self._busy = False
         self._revision = 0
         self._pending = False
@@ -85,7 +91,8 @@ class TranslationViewModel(QObject):
         if value != self._source_language:
             self._input_changed()
             self._source_language = value
-            self._settings.source_language = value
+            if not self._quick:
+                self._settings.source_language = value
             self.sourceLanguageChanged.emit()
 
     @Property(str, notify=targetLanguageChanged)
@@ -96,7 +103,8 @@ class TranslationViewModel(QObject):
         if value != self._target_language:
             self._input_changed()
             self._target_language = value
-            self._settings.target_language = value
+            if not self._quick:
+                self._settings.target_language = value
             self.targetLanguageChanged.emit()
 
     @Property(bool, notify=busyChanged)
@@ -551,6 +559,15 @@ class SettingsViewModel(QObject):
     def azureDeployment(self, value):
         if value != self.settings.azure_openai.deployment:
             self.settings.azure_openai.deployment = value
+            self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def quickTranslateTarget(self): return self.settings.quick_translate_target
+
+    @quickTranslateTarget.setter
+    def quickTranslateTarget(self, value):
+        if value and value != self.settings.quick_translate_target:
+            self.settings.quick_translate_target = value
             self.settingsChanged.emit()
 
     @Property(str, notify=settingsChanged)

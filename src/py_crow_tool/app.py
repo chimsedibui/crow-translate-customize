@@ -127,7 +127,7 @@ def main() -> int:
     ocr.recognized.connect(lambda text: setattr(translation_vm, "sourceText", text))
     instance.activated.connect(lambda: (window.show(), window.raise_(), window.requestActivate()))
 
-    quick_vm = TranslationViewModel(manager, settings, store, history, loop_runner)
+    quick_vm = TranslationViewModel(manager, settings, store, history, loop_runner, quick=True)
     quick_engine = QQmlApplicationEngine()
     # The popup is glass, and glass needs to know what is behind it. Nothing can
     # read the pixels under a window that is already up, so the controller grabs
@@ -234,6 +234,7 @@ def main() -> int:
     settings_vm.saved.connect(lambda: desktop.set_startup_enabled(settings.start_with_system))
     settings_vm.saved.connect(ocr.apply_settings)
     settings_vm.saved.connect(refine_vm.applySettings)
+    settings_vm.saved.connect(lambda: setattr(quick_vm, "targetLanguage", settings.quick_translate_target))
 
     def _shutdown() -> None:
         tts.stop()
