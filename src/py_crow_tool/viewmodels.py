@@ -445,6 +445,28 @@ class RefineViewModel(QObject):
         self.statusChanged.emit()
 
 
+THEMES = ("system", "light", "dark")
+
+
+def apply_theme(mode: str) -> None:
+    """Pin or release the application's colour scheme.
+
+    Set on QStyleHints rather than in Theme.qml so that one switch reaches everything:
+    Theme.dark is bound to styleHints.colorScheme, the FluentWinUI3 controls read the
+    same hint, and the quick-translate popup and capture overlay -- separate engines --
+    follow it without being told.
+    """
+    from PySide6.QtGui import QGuiApplication
+
+    hints = QGuiApplication.styleHints()
+    if mode == "light":
+        hints.setColorScheme(Qt.ColorScheme.Light)
+    elif mode == "dark":
+        hints.setColorScheme(Qt.ColorScheme.Dark)
+    else:
+        hints.unsetColorScheme()
+
+
 class SettingsViewModel(QObject):
     saved = Signal()
     settingsChanged = Signal()
@@ -530,6 +552,23 @@ class SettingsViewModel(QObject):
         if value != self.settings.azure_openai.deployment:
             self.settings.azure_openai.deployment = value
             self.settingsChanged.emit()
+
+    @Property(str, notify=settingsChanged)
+    def theme(self): return self.settings.theme
+
+    @theme.setter
+    def theme(self, value):
+        value = value if value in THEMES else "system"
+        if value != self.settings.theme:
+            self.settings.theme = value
+            # Applied as soon as it is chosen, not on Save: a scheme is judged by looking
+            # at it, and the header toggle has no dialog to confirm.
+            apply_theme(value)
+            self.settingsChanged.emit()
+
+    @Property("QVariantList", constant=True)
+    def themes(self):
+        return [{"code": "system", "name": "Follow system"}, {"code": "light", "name": "Light"}, {"code": "dark", "name": "Dark"}]
 
     @Property(bool, notify=settingsChanged)
     def autoTranslate(self): return self.settings.auto_translate

@@ -336,3 +336,17 @@ def test_refine_tab_shows_one_card_per_version_and_copies_the_chosen_one(ui, qap
 
     assert QGuiApplication.clipboard().text() == "We have fixed the login bug and will deploy tomorrow."
     assert not warnings
+
+
+
+def test_theme_toggle_pins_the_scheme_not_on_screen(ui, qapp):
+    # The offscreen platform ignores colour-scheme overrides, so Theme.dark stays put
+    # here; apply_theme's effect on the hints is covered in test_viewmodels.
+    window, model, settings, *_ = ui
+    toggle = window.findChild(QObject, "themeToggle")
+    on_screen_dark = toggle.property("symbol") == "sun"
+    toggle.clicked.emit()
+    qapp.processEvents()
+    assert settings.theme == ("light" if on_screen_dark else "dark")
+    settings.theme = "neon"
+    assert settings.settings.theme == "system"

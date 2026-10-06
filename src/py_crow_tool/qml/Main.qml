@@ -124,6 +124,15 @@ ApplicationWindow {
                 TabButton { text: "Refine"; width: implicitWidth; objectName: "refineTab" }
             }
             ActionButton { text: "History"; symbol: "history"; visible: modeTabs.currentIndex === 0; onClicked: historyDrawer.open() }
+            // Flips to the scheme not currently on screen and pins it; "Follow system"
+            // is in Settings for going back. Saved straight away -- there is no dialog
+            // here to press Save in.
+            ActionButton {
+                objectName: "themeToggle"
+                symbol: Theme.dark ? "sun" : "moon"
+                ToolTip.text: Theme.dark ? "Switch to light mode" : "Switch to dark mode"
+                onClicked: { settingsModel.theme = Theme.dark ? "light" : "dark"; settingsModel.save() }
+            }
             ActionButton { text: "Settings"; symbol: "settings"; onClicked: settingsDialog.open() }
         }
         // Each tab is a whole page rather than a mode flag on one: Refine has no
@@ -500,6 +509,16 @@ ApplicationWindow {
                     text: "Refine rewrites your draft as English messages using Azure OpenAI, and falls back to OpenAI when Azure is not set up or fails. It uses the keys entered under OCR below — fill in whichever you have." }
 
                 Label { text: "Desktop"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
+                Label { text: "Appearance" }
+                // Applies the moment it is picked, like the header toggle, so it is not
+                // part of the Save/Cancel draft: cancelling would otherwise have to undo
+                // a change the user has already been looking at.
+                LanguagePicker {
+                    id: themePicker; objectName: "themePicker"; model: settingsModel.themes
+                    currentIndex: Math.max(0, settingsModel.themes.findIndex(item => item.code === settingsModel.theme))
+                    onActivated: { settingsModel.theme = currentValue; settingsModel.save() }
+                    Accessible.name: "Appearance"
+                }
                 CheckBox { id: startup; objectName: "startup"; text: "Start with system" }
 
                 Label { text: "OCR"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }

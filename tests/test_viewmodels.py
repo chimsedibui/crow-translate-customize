@@ -297,3 +297,24 @@ def test_status_line_names_the_preferred_provider(qapp, tmp_path):
         assert vm.status == "Azure OpenAI"
     finally:
         _stop_runner(runner)
+
+
+def test_apply_theme_pins_light_or_dark_and_releases_for_system(monkeypatch):
+    from PySide6.QtCore import Qt
+    from PySide6.QtGui import QGuiApplication
+
+    from py_crow_tool.viewmodels import apply_theme
+
+    calls = []
+
+    class Hints:
+        def setColorScheme(self, scheme):
+            calls.append(scheme)
+
+        def unsetColorScheme(self):
+            calls.append("unset")
+
+    monkeypatch.setattr(QGuiApplication, "styleHints", staticmethod(lambda: Hints()))
+    for mode in ("light", "dark", "system", "anything-else"):
+        apply_theme(mode)
+    assert calls == [Qt.ColorScheme.Light, Qt.ColorScheme.Dark, "unset", "unset"]

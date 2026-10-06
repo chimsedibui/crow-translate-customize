@@ -33,7 +33,7 @@ The preview uses sample text. The interface uses Qt Quick's FluentWinUI3 style, 
 | Area | What it does |
 |---|---|
 | Translation | Google Cloud Translation Basic v2 with API-key authentication; pluggable providers. |
-| Desktop UI | QML app with language selection, history, settings, OCR input, and speech controls. |
+| Desktop UI | QML app with language selection, history, settings, OCR input, and speech controls. Light and dark themes: follows the OS by default, with a header toggle and an Appearance setting to pin one (`theme` in `settings.toml`). |
 | Refine | A second tab that rewrites a Vietnamese (or rough English) draft as two or three English messages ready to send, with notes on what changed. |
 | Background operation | System tray icon, single-instance enforcement, optional "start with system". |
 | Global hotkeys | Translate the clipboard, or select text anywhere and get a popup translation near the cursor. |

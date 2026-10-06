@@ -31,3 +31,13 @@ def test_redact_nested_secrets():
         "nested": {"token": "<redacted>", "ok": 4},
     }
 
+
+
+def test_theme_round_trips_and_defaults_to_following_the_system(tmp_path):
+    from py_crow_tool.config import AppSettings, SettingsStore
+
+    store = SettingsStore(tmp_path / "settings.toml")
+    assert store.load().theme == "system"
+    settings = AppSettings(theme="light")
+    store.save(settings)
+    assert store.load().theme == "light"

@@ -14,7 +14,7 @@ from py_crow_tool.bootstrap import build_services
 from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, RefineService, SingleInstance, TtsService
 from py_crow_tool.services.backdrop import BackdropController, BackdropImageProvider
 from py_crow_tool.services.capture import CaptureController, ScreenshotImageProvider
-from py_crow_tool.viewmodels import RefineViewModel, SettingsViewModel, TranslationViewModel
+from py_crow_tool.viewmodels import RefineViewModel, SettingsViewModel, TranslationViewModel, apply_theme
 
 
 # The app renders 21 languages across six writing systems, so the fallback order is
@@ -95,6 +95,8 @@ def main() -> int:
         return 0
 
     store, settings, manager = build_services()
+    # Before any QML loads, so the first frame is already in the chosen scheme.
+    apply_theme(settings.theme)
     history = HistoryStore(limit=settings.history_limit)
     loop_runner = AsyncLoopRunner()
     translation_vm = TranslationViewModel(manager, settings, store, history, loop_runner)

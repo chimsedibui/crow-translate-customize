@@ -65,6 +65,8 @@ class AppSettings:
     # Empty means "whichever provider is configured", which is what a single-provider
     # install wants. It only has to be set once a second one is configured.
     preferred_provider: str = ""
+    # "system" follows the OS light/dark setting; "light" and "dark" pin one scheme.
+    theme: str = "system"
     # The Refine tab's tone preset; see core.refine_models.REFINE_TONES.
     refine_tone: str = "friendly"
     google_v2: GoogleV2Settings = field(default_factory=GoogleV2Settings)
@@ -134,6 +136,7 @@ class SettingsStore:
             ocr_engine=str(data.get("ocr_engine", "openai")),
             preferred_provider=str(data.get("preferred_provider", "")),
             refine_tone=str(data.get("refine_tone", "friendly")),
+            theme=str(data.get("theme", "system")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
             openai=OpenAiSettings(**data.get("openai", {})),
             azure_openai=AzureOpenAiSettings(**data.get("azure_openai", {})),
