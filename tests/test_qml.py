@@ -13,6 +13,7 @@ from py_crow_tool.providers.manager import ProviderManager
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 from py_crow_tool.services.history import HistoryStore
 from py_crow_tool.services.refine import RefineService
+from py_crow_tool.services.refine_history import RefineHistoryStore
 from py_crow_tool.viewmodels import RefineViewModel, TranslationViewModel, SettingsViewModel
 
 
@@ -31,7 +32,10 @@ def ui(qapp, tmp_path):
     store = SettingsStore(tmp_path / "settings.toml")
     model = TranslationViewModel(ProviderManager([]), settings, store, HistoryStore(tmp_path / "history.json"), runner)
     settings_model = SettingsViewModel(settings, store)
-    refine_model = RefineViewModel(RefineService(settings, refiners=[]), settings, store, runner)
+    refine_model = RefineViewModel(
+        RefineService(settings, refiners=[]), settings, store, runner,
+        history=RefineHistoryStore(tmp_path / "refine_history.json"),
+    )
     service = DesktopStub()
     engine = QQmlApplicationEngine()
     warnings = []
@@ -335,6 +339,25 @@ def test_refine_tab_shows_one_card_per_version_and_copies_the_chosen_one(ui, qap
     from PySide6.QtGui import QGuiApplication
 
     assert QGuiApplication.clipboard().text() == "We have fixed the login bug and will deploy tomorrow."
+
+    # The result was recorded, and restoring it brings back draft, tone and versions
+    # without another request.
+    assert len(refine.history) == 1
+    assert refine.history[0]["tone"] == "formal"
+    created = refine.history[0]["id"]
+    refine.clearAll()
+    refine.tone = "concise"
+    assert refine.options == []
+    window.findChild(QObject, "refinePage").openHistory()
+    qapp.processEvents()
+    assert window.findChild(QObject, "refineHistoryList").property("count") == 1
+    refine.restoreHistory(created)
+    assert refine.sourceText == "anh oi bug login fix xong roi, mai deploy"
+    assert refine.tone == "formal"
+    assert len(refine.options) == 2
+    assert refine.status == "Restored from history"
+    refine.clearHistory()
+    assert refine.history == []
     assert not warnings
 
 

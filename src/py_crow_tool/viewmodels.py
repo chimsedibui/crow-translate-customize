@@ -15,6 +15,7 @@ from py_crow_tool.providers.manager import ProviderManager
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 from py_crow_tool.services.history import HistoryStore
 from py_crow_tool.services.refine import RefineService
+from py_crow_tool.services.refine_history import RefineHistoryStore
 
 
 class TranslationViewModel(QObject):
@@ -289,6 +290,7 @@ class RefineViewModel(QObject):
     statusChanged = Signal()
     errorChanged = Signal()
     resultChanged = Signal()
+    historyChanged = Signal()
     _resultReady = Signal(object, int)
     _errorReady = Signal(str, int)
 
@@ -299,9 +301,12 @@ class RefineViewModel(QObject):
         settings_store: SettingsStore,
         loop_runner: AsyncLoopRunner,
         parent=None,
+        *,
+        history: RefineHistoryStore | None = None,
     ):
         super().__init__(parent)
         self._service = service
+        self._history = history or RefineHistoryStore(limit=settings.history_limit)
         self._settings = settings
         self._settings_store = settings_store
         self._loop_runner = loop_runner
@@ -384,19 +389,25 @@ class RefineViewModel(QObject):
         request = RefineRequest(text, self._tone)
         revision = self._revision
         future = self._loop_runner.submit(self._service.refine(request))
-        future.add_done_callback(lambda done: self._refine_done(done, revision))
+        future.add_done_callback(lambda done: self._refine_done(done, request, revision))
 
-    def _refine_done(self, future, revision):
+    def _refine_done(self, future, request, revision):
         try:
             result = future.result()
         except Exception as error:
             self._errorReady.emit(str(error), revision)
         else:
-            self._resultReady.emit(result, revision)
+            self._resultReady.emit((request, result), revision)
 
     @Slot(object, int)
-    def _apply_result(self, result, revision):
+    def _apply_result(self, payload, revision):
+        request, result = payload
         self._set_busy(False)
+        # Recorded even when the draft has moved on since: the request was paid for and
+        # its versions are still good answers to the text that was sent.
+        self._history.add(request.text, request.tone, result)
+        self.historyChanged.emit()
+        self._loop_runner.submit(asyncio.to_thread(self._history.flush))
         self._options = [{"label": option.label, "text": option.text} for option in result.options]
         self._notes = list(result.notes)
         self.resultChanged.emit()
@@ -413,6 +424,30 @@ class RefineViewModel(QObject):
         self._set_busy(False)
         self.reportError(message)
         self._set_status("Refine failed")
+
+    @Property("QVariantList", notify=historyChanged)
+    def history(self):
+        return [asdict(item) for item in self._history.load()]
+
+    @Slot(str)
+    def restoreHistory(self, item_id):
+        """Bring back a past result as it was, without spending another request."""
+        item = self._history.find(item_id)
+        if item is None:
+            return
+        self.sourceText = item.source
+        if item.tone in {code for code, _ in REFINE_TONES}:
+            self.tone = item.tone
+        self._options = [dict(option) for option in item.options]
+        self._notes = list(item.notes)
+        self.resultChanged.emit()
+        self.reportError("")
+        self._set_status("Restored from history")
+
+    @Slot()
+    def clearHistory(self):
+        self._history.clear()
+        self.historyChanged.emit()
 
     @Slot(int)
     def copyOption(self, index):

@@ -13,6 +13,11 @@ ColumnLayout {
 
     signal copied()
     function focusEditor() { draftEditor.forceActiveFocus() }
+    function openHistory() { refineHistoryDrawer.open() }
+    function toneName(code) {
+        for (let item of refineModel.tones) if (item.code === code) return item.name
+        return code
+    }
 
     component Caption: Label { color: Theme.muted; font.pixelSize: Theme.sizeCaption; font.weight: Theme.weightMedium }
 
@@ -236,6 +241,60 @@ ColumnLayout {
             enabled: !refineModel.busy && refineModel.sourceText.trim().length > 0
             onClicked: refineModel.refine()
         }
+    }
+
+    // The translation history's twin, kept separate because an entry here is a draft
+    // and the versions it produced rather than one text and its translation.
+    Drawer {
+        id: refineHistoryDrawer; objectName: "refineHistoryDrawer"
+        edge: Qt.RightEdge
+        width: Math.min(ApplicationWindow.window ? ApplicationWindow.window.width - 48 : 420, 420)
+        height: ApplicationWindow.window ? ApplicationWindow.window.height : 600
+        background: Surface { radius: 0; level: 2 }
+        ColumnLayout {
+            anchors.fill: parent; anchors.margins: 20; spacing: 16
+            RowLayout {
+                Label { text: "Refine history"; font.family: Theme.displayFamily; font.pixelSize: Theme.sizeTitle; font.weight: Theme.weightBold }
+                Item { Layout.fillWidth: true }
+                ActionButton { text: "Clear all"; enabled: refineModel.history.length > 0; onClicked: clearRefineHistoryDialog.open() }
+                ActionButton { symbol: "close"; ToolTip.text: "Close history"; onClicked: refineHistoryDrawer.close() }
+            }
+            TextField { id: refineHistorySearch; objectName: "refineHistorySearch"; Layout.fillWidth: true; placeholderText: "Search drafts and versions…"; Accessible.name: "Search refine history" }
+            Label {
+                visible: refineHistoryList.count === 0; Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted
+                text: refineHistorySearch.text ? "No matching drafts." : "Your refined drafts will be saved here."
+            }
+            ListView {
+                id: refineHistoryList; objectName: "refineHistoryList"
+                Layout.fillWidth: true; Layout.fillHeight: true; clip: true; spacing: 8
+                // Searches the versions as well as the draft: what is remembered later is
+                // usually a phrase from the English that was sent, not the Vietnamese.
+                model: refineModel.history.filter(item => {
+                    const haystack = (item.source + " " + item.options.map(option => option.text).join(" ")).toLowerCase()
+                    return haystack.indexOf(refineHistorySearch.text.toLowerCase()) >= 0
+                })
+                delegate: ItemDelegate {
+                    required property var modelData
+                    width: ListView.view.width
+                    implicitHeight: refineRowContent.implicitHeight + 24
+                    onClicked: { refineModel.restoreHistory(modelData.id); refineHistoryDrawer.close() }
+                    contentItem: ColumnLayout {
+                        id: refineRowContent; spacing: 6
+                        Caption { text: page.toneName(modelData.tone) + " · " + modelData.options.length + " versions" }
+                        Label { Layout.fillWidth: true; text: modelData.source; elide: Text.ElideRight; font.weight: Theme.weightMedium }
+                        Label { Layout.fillWidth: true; text: modelData.options.length ? modelData.options[0].text : ""; wrapMode: Text.Wrap; maximumLineCount: 3; elide: Text.ElideRight; color: Theme.muted }
+                        Caption { text: "Click to restore · " + modelData.created_at.slice(0, 10) }
+                    }
+                }
+            }
+        }
+    }
+    Dialog {
+        id: clearRefineHistoryDialog; title: "Clear refine history?"; modal: true
+        anchors.centerIn: Overlay.overlay
+        standardButtons: Dialog.Ok | Dialog.Cancel
+        Label { text: "This removes all saved refined drafts." }
+        onAccepted: refineModel.clearHistory()
     }
 
     property string notice: ""

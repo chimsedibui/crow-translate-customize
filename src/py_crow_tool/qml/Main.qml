@@ -123,7 +123,7 @@ ApplicationWindow {
                 TabButton { text: "Translate"; width: implicitWidth }
                 TabButton { text: "Refine"; width: implicitWidth; objectName: "refineTab" }
             }
-            ActionButton { text: "History"; symbol: "history"; visible: modeTabs.currentIndex === 0; onClicked: historyDrawer.open() }
+            ActionButton { text: "History"; symbol: "history"; onClicked: modeTabs.currentIndex === 1 ? refinePage.openHistory() : historyDrawer.open() }
             // Flips to the scheme not currently on screen and pins it; "Follow system"
             // is in Settings for going back. Saved straight away -- there is no dialog
             // here to press Save in.

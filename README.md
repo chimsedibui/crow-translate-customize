@@ -166,6 +166,11 @@ The tone row picks the register: **Friendly** (the default; a chat with a client
 work with regularly), **Formal** (an email to a new client), **Concise** (a status ping)
 or **My voice** (fix grammar and order only). The choice is remembered as `refine_tone`.
 
+Every result is kept in its own history, `refine_history.json` beside the translation
+history and capped by the same `history_limit`. The **History** button opens it while
+the Refine tab is showing; search covers both the drafts and the English versions, and
+clicking an entry restores the draft, tone and every version without a new request.
+
 Refine uses the Azure OpenAI values from [Configure OCR](#configure-ocr) first and falls
 back to OpenAI when Azure is not configured or a request fails; the status line says
 which one answered. The OpenAI backup uses `[openai] refine_model` (default
