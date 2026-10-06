@@ -34,6 +34,7 @@ The preview uses sample text. The interface uses Qt Quick's FluentWinUI3 style, 
 |---|---|
 | Translation | Google Cloud Translation Basic v2 with API-key authentication; pluggable providers. |
 | Desktop UI | QML app with language selection, history, settings, OCR input, and speech controls. |
+| Refine | A second tab that rewrites a Vietnamese (or rough English) draft as two or three English messages ready to send, with notes on what changed. |
 | Background operation | System tray icon, single-instance enforcement, optional "start with system". |
 | Global hotkeys | Translate the clipboard, or select text anywhere and get a popup translation near the cursor. |
 | CLI | Translation, language detection, file/stdin input, OCR, JSON output — scriptable and automatable. |
@@ -151,6 +152,25 @@ Setting `preferred_provider = "azure-openai"` in `settings.toml` makes it the de
 the GUI too. An auto-detect translation then spends two requests instead of one: the chat
 endpoint does not report the language it detected, so detection runs as its own call.
 Setting the source language explicitly avoids the second request.
+
+## Refine: drafts into client-ready English
+
+The **Refine** tab is for writing, not translating. Type what you want to say in
+Vietnamese, in rough English, or a mix, in whatever order the ideas come, and press
+**Refine** (or Ctrl+Enter). The model reorders and regroups the ideas and returns two or
+three English versions, each on a card with its own Copy button, plus a few notes in
+Vietnamese on what it changed. It is told to keep every fact, number, name and
+commitment and never to add promises the draft does not make.
+
+The tone row picks the register: **Friendly** (the default; a chat with a client you
+work with regularly), **Formal** (an email to a new client), **Concise** (a status ping)
+or **My voice** (fix grammar and order only). The choice is remembered as `refine_tone`.
+
+Refine uses the Azure OpenAI values from [Configure OCR](#configure-ocr) first and falls
+back to OpenAI when Azure is not configured or a request fails; the status line says
+which one answered. The OpenAI backup uses `[openai] refine_model` (default
+`gpt-5-mini`) rather than the OCR model. Only those two keys are involved — Google
+Translate is not used for Refine.
 
 ## Background operation and global hotkeys
 

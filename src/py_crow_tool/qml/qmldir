@@ -4,3 +4,4 @@ CaptureOverlayWindow 1.0 CaptureOverlayWindow.qml
 SkeletonLines 1.0 SkeletonLines.qml
 GlassSurface 1.0 GlassSurface.qml
 Surface 1.0 Surface.qml
+RefinePage 1.0 RefinePage.qml

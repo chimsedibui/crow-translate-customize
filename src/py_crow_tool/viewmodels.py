@@ -10,9 +10,11 @@ from py_crow_tool.bootstrap import build_providers
 from py_crow_tool.config import AppSettings, SettingsStore
 from py_crow_tool.core.languages import LANGUAGES
 from py_crow_tool.core.models import TranslationException, TranslationRequest
+from py_crow_tool.core.refine_models import DEFAULT_REFINE_TONE, REFINE_TONES, RefineRequest
 from py_crow_tool.providers.manager import ProviderManager
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 from py_crow_tool.services.history import HistoryStore
+from py_crow_tool.services.refine import RefineService
 
 
 class TranslationViewModel(QObject):
@@ -260,6 +262,179 @@ class TranslationViewModel(QObject):
         )
         self._loop_runner.submit(ProviderManager.close_providers(old_providers))
         self._set_status(self._provider_status())
+
+    def _set_busy(self, value):
+        self._busy = value
+        self.busyChanged.emit()
+
+    def _set_status(self, value):
+        self._status = value
+        self.statusChanged.emit()
+
+
+class RefineViewModel(QObject):
+    """The Refine tab: a draft in, two or three English rewrites and notes out."""
+
+    sourceTextChanged = Signal()
+    toneChanged = Signal()
+    busyChanged = Signal()
+    statusChanged = Signal()
+    errorChanged = Signal()
+    resultChanged = Signal()
+    _resultReady = Signal(object, int)
+    _errorReady = Signal(str, int)
+
+    def __init__(
+        self,
+        service: RefineService,
+        settings: AppSettings,
+        settings_store: SettingsStore,
+        loop_runner: AsyncLoopRunner,
+        parent=None,
+    ):
+        super().__init__(parent)
+        self._service = service
+        self._settings = settings
+        self._settings_store = settings_store
+        self._loop_runner = loop_runner
+        self._source_text = ""
+        known = {code for code, _ in REFINE_TONES}
+        self._tone = settings.refine_tone if settings.refine_tone in known else DEFAULT_REFINE_TONE
+        self._busy = False
+        self._error = ""
+        self._options: list[dict[str, str]] = []
+        self._notes: list[str] = []
+        self._revision = 0
+        self._status = self._idle_status()
+        self._resultReady.connect(self._apply_result)
+        self._errorReady.connect(self._apply_error)
+
+    def _idle_status(self) -> str:
+        if self._service.configured:
+            return "Write your idea in Vietnamese or rough English, then refine"
+        return "Refine needs Azure OpenAI or an OpenAI key in Settings"
+
+    @Property(str, notify=sourceTextChanged)
+    def sourceText(self): return self._source_text
+
+    @sourceText.setter
+    def sourceText(self, value):
+        if value != self._source_text:
+            self._source_text = value
+            self._revision += 1
+            if self._options:
+                self._set_status("Draft changed — refine to update")
+            self.reportError("")
+            self.sourceTextChanged.emit()
+
+    @Property(str, notify=toneChanged)
+    def tone(self): return self._tone
+
+    @tone.setter
+    def tone(self, value):
+        if value != self._tone:
+            self._tone = value
+            self._settings.refine_tone = value
+            self.toneChanged.emit()
+            self._loop_runner.submit(asyncio.to_thread(self._settings_store.save, self._settings))
+            if self._options:
+                self._set_status("Tone changed — refine to update")
+
+    @Property("QVariantList", constant=True)
+    def tones(self):
+        return [{"code": code, "name": name} for code, name in REFINE_TONES]
+
+    @Property(bool, notify=busyChanged)
+    def busy(self): return self._busy
+
+    @Property(str, notify=statusChanged)
+    def status(self): return self._status
+
+    @Property(str, notify=errorChanged)
+    def error(self): return self._error
+
+    @Property("QVariantList", notify=resultChanged)
+    def options(self): return self._options
+
+    @Property("QVariantList", notify=resultChanged)
+    def notes(self): return self._notes
+
+    @Slot(str)
+    def reportError(self, message):
+        if message != self._error:
+            self._error = message
+            self.errorChanged.emit()
+
+    @Slot()
+    def refine(self):
+        text = self._source_text.strip()
+        if not text or self._busy:
+            return
+        self.reportError("")
+        self._set_busy(True)
+        self._set_status("Refining…")
+        request = RefineRequest(text, self._tone)
+        revision = self._revision
+        future = self._loop_runner.submit(self._service.refine(request))
+        future.add_done_callback(lambda done: self._refine_done(done, revision))
+
+    def _refine_done(self, future, revision):
+        try:
+            result = future.result()
+        except Exception as error:
+            self._errorReady.emit(str(error), revision)
+        else:
+            self._resultReady.emit(result, revision)
+
+    @Slot(object, int)
+    def _apply_result(self, result, revision):
+        self._set_busy(False)
+        self._options = [{"label": option.label, "text": option.text} for option in result.options]
+        self._notes = list(result.notes)
+        self.resultChanged.emit()
+        names = {"azure-openai": "Azure OpenAI", "openai": "OpenAI"}
+        status = "Refined with " + names.get(result.provider_id, result.provider_id)
+        if result.fallback_from:
+            status += " (" + ", ".join(result.fallback_from) + " failed)"
+        if revision != self._revision:
+            status = "Draft changed — refine to update"
+        self._set_status(status)
+
+    @Slot(str, int)
+    def _apply_error(self, message, revision):
+        self._set_busy(False)
+        self.reportError(message)
+        self._set_status("Refine failed")
+
+    @Slot(int)
+    def copyOption(self, index):
+        from PySide6.QtGui import QGuiApplication
+
+        if 0 <= index < len(self._options):
+            QGuiApplication.clipboard().setText(self._options[index]["text"])
+
+    @Slot()
+    def pasteSource(self):
+        from PySide6.QtGui import QGuiApplication
+
+        text = QGuiApplication.clipboard().text()
+        if text:
+            self.sourceText = text
+
+    @Slot()
+    def clearAll(self):
+        self.sourceText = ""
+        self.reportError("")
+        if self._options or self._notes:
+            self._options, self._notes = [], []
+            self.resultChanged.emit()
+        self._set_status(self._idle_status())
+
+    @Slot()
+    def applySettings(self):
+        self._service.apply_settings()
+        if not self._busy and not self._options:
+            self._set_status(self._idle_status())
 
     def _set_busy(self, value):
         self._busy = value

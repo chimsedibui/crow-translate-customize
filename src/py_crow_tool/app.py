@@ -11,10 +11,10 @@ from PySide6.QtQuickControls2 import QQuickStyle
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 
 from py_crow_tool.bootstrap import build_services
-from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, SingleInstance, TtsService
+from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, RefineService, SingleInstance, TtsService
 from py_crow_tool.services.backdrop import BackdropController, BackdropImageProvider
 from py_crow_tool.services.capture import CaptureController, ScreenshotImageProvider
-from py_crow_tool.viewmodels import SettingsViewModel, TranslationViewModel
+from py_crow_tool.viewmodels import RefineViewModel, SettingsViewModel, TranslationViewModel
 
 
 # The app renders 21 languages across six writing systems, so the fallback order is
@@ -101,6 +101,8 @@ def main() -> int:
     settings_vm = SettingsViewModel(settings, store, loop_runner)
     tts = TtsService()
     ocr = OcrService(settings, loop_runner)
+    refine_service = RefineService(settings)
+    refine_vm = RefineViewModel(refine_service, settings, store, loop_runner)
     desktop = DesktopServices()
 
     reduce_motion = _system_reduce_motion()
@@ -111,6 +113,7 @@ def main() -> int:
     context.setContextProperty("settingsModel", settings_vm)
     context.setContextProperty("ttsService", tts)
     context.setContextProperty("ocrService", ocr)
+    context.setContextProperty("refineModel", refine_vm)
     context.setContextProperty("systemReduceMotion", reduce_motion)
     qml_main = files("py_crow_tool") / "qml" / "Main.qml"
     engine.load(QUrl.fromLocalFile(str(qml_main)))
@@ -228,6 +231,7 @@ def main() -> int:
     desktop.shortcutTriggered.connect(shortcut_dispatcher.dispatch, Qt.ConnectionType.QueuedConnection)
     settings_vm.saved.connect(lambda: desktop.set_startup_enabled(settings.start_with_system))
     settings_vm.saved.connect(ocr.apply_settings)
+    settings_vm.saved.connect(refine_vm.applySettings)
 
     def _shutdown() -> None:
         tts.stop()
@@ -237,6 +241,10 @@ def main() -> int:
             pass
         try:
             loop_runner.run_sync(ocr.close(), timeout=3)
+        except Exception:
+            pass
+        try:
+            loop_runner.run_sync(refine_service.close(), timeout=3)
         except Exception:
             pass
         loop_runner.stop()

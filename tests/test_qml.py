@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 
 import pytest
@@ -11,7 +12,8 @@ from py_crow_tool.config import AppSettings, SettingsStore
 from py_crow_tool.providers.manager import ProviderManager
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 from py_crow_tool.services.history import HistoryStore
-from py_crow_tool.viewmodels import TranslationViewModel, SettingsViewModel
+from py_crow_tool.services.refine import RefineService
+from py_crow_tool.viewmodels import RefineViewModel, TranslationViewModel, SettingsViewModel
 
 
 class DesktopStub(QObject):
@@ -29,11 +31,12 @@ def ui(qapp, tmp_path):
     store = SettingsStore(tmp_path / "settings.toml")
     model = TranslationViewModel(ProviderManager([]), settings, store, HistoryStore(tmp_path / "history.json"), runner)
     settings_model = SettingsViewModel(settings, store)
+    refine_model = RefineViewModel(RefineService(settings, refiners=[]), settings, store, runner)
     service = DesktopStub()
     engine = QQmlApplicationEngine()
     warnings = []
     engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
-    for name, obj in [("translationModel", model), ("quickTranslateModel", model), ("settingsModel", settings_model), ("ttsService", service), ("ocrService", service)]:
+    for name, obj in [("translationModel", model), ("quickTranslateModel", model), ("settingsModel", settings_model), ("ttsService", service), ("ocrService", service), ("refineModel", refine_model)]:
         engine.rootContext().setContextProperty(name, obj)
     qml_dir = Path(__file__).parents[1] / "src/py_crow_tool/qml"
     engine.load(QUrl.fromLocalFile(str(qml_dir / "Main.qml")))
@@ -282,3 +285,54 @@ def test_ocr_engine_picker_round_trips(ui, qapp):
     qapp.processEvents()
     assert window.findChild(QObject, "ocrEngine").property("currentValue") == "azure-openai"
     assert not ui[5]
+
+
+class _ScriptedRefiner:
+    """Stands in for Azure: answers with fixed versions so the page has cards to show."""
+
+    id = "azure-openai"
+    display_name = "Azure OpenAI"
+    configured = True
+
+    async def refine(self, request):
+        from py_crow_tool.core.refine_models import RefineOption, RefineResult
+
+        return RefineResult(
+            options=(RefineOption("Concise", "We fixed the login bug."), RefineOption("Detailed", "We have fixed the login bug and will deploy tomorrow.")),
+            notes=("Gộp hai ý thành một câu",),
+            provider_id=self.id,
+        )
+
+    def cancel(self, request_id):
+        pass
+
+    async def close(self):
+        pass
+
+
+def test_refine_tab_shows_one_card_per_version_and_copies_the_chosen_one(ui, qapp):
+    window, model, settings, service, engine, warnings, _ = ui
+    refine = engine.rootContext().contextProperty("refineModel")
+    refine._service._refiners = [_ScriptedRefiner()]
+    window.findChild(QObject, "modeTabs").setProperty("currentIndex", 1)
+    qapp.processEvents()
+    assert window.findChild(QObject, "refinePage").property("visible")
+
+    refine.tone = "formal"
+    assert settings.settings.refine_tone == "formal"
+
+    refine.sourceText = "anh oi bug login fix xong roi, mai deploy"
+    refine.refine()
+    deadline = time.monotonic() + 2
+    while refine.busy and time.monotonic() < deadline:
+        qapp.processEvents()
+        time.sleep(0.01)
+    qapp.processEvents()
+    assert [option["label"] for option in refine.options] == ["Concise", "Detailed"]
+    assert window.findChild(QObject, "refineOptions").property("count") == 2
+
+    refine.copyOption(1)
+    from PySide6.QtGui import QGuiApplication
+
+    assert QGuiApplication.clipboard().text() == "We have fixed the login bug and will deploy tomorrow."
+    assert not warnings

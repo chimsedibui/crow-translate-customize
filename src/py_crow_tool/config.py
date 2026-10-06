@@ -41,6 +41,10 @@ class OpenAiSettings:
     ocr_resize_resolution: int = 1280
     ocr_image_format: str = "png"
     ocr_jpeg_quality: int = 87
+    # The backup model for Refine, used when Azure is not set up or fails. A text model is
+    # enough -- the rewrite never sees an image -- and mini writes noticeably better
+    # client English than nano for a similar wait.
+    refine_model: str = "gpt-5-mini"
 
 
 @dataclass(slots=True)
@@ -61,6 +65,8 @@ class AppSettings:
     # Empty means "whichever provider is configured", which is what a single-provider
     # install wants. It only has to be set once a second one is configured.
     preferred_provider: str = ""
+    # The Refine tab's tone preset; see core.refine_models.REFINE_TONES.
+    refine_tone: str = "friendly"
     google_v2: GoogleV2Settings = field(default_factory=GoogleV2Settings)
     openai: OpenAiSettings = field(default_factory=OpenAiSettings)
     azure_openai: AzureOpenAiSettings = field(default_factory=AzureOpenAiSettings)
@@ -127,6 +133,7 @@ class SettingsStore:
             ocr_language=str(data.get("ocr_language", "auto")),
             ocr_engine=str(data.get("ocr_engine", "openai")),
             preferred_provider=str(data.get("preferred_provider", "")),
+            refine_tone=str(data.get("refine_tone", "friendly")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
             openai=OpenAiSettings(**data.get("openai", {})),
             azure_openai=AzureOpenAiSettings(**data.get("azure_openai", {})),
