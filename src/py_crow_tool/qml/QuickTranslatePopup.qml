@@ -118,6 +118,20 @@ Window {
         visible: false
     }
 
+    // The user pressed the hotkey again to put a visible popup somewhere better.
+    // popAt will not move a visible window (the glass backdrop has to be grabbed
+    // while it is hidden), so hide it, give the compositor time to actually take
+    // it off screen -- grabbing sooner would photograph the popup itself -- and
+    // then pop it again at the new spot, which re-grabs and replays the entrance.
+    property point pendingMove
+    function moveTo(x, y) {
+        pendingMove = Qt.point(x, y)
+        if (!popup.visible) { popAt(x, y); return }
+        popup.hide()
+        moveDelay.restart()
+    }
+    Timer { id: moveDelay; interval: 120; onTriggered: popup.popAt(popup.pendingMove.x, popup.pendingMove.y) }
+
     // Activating a window we just showed can briefly report active=false before
     // settling to true; closing on that first flicker would hide the popup the
     // instant it appears, so only start reacting to deactivation once it has

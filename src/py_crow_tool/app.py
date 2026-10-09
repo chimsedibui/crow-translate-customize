@@ -261,6 +261,12 @@ def _quick_translate_selection(
 ) -> None:
     if popup is None or desktop.selection_capture_pending:
         return
+    # Pressing the hotkey again while the popup has focus means "put it here
+    # instead": the popup landed in a corner or over something the user needs.
+    # Copying now would only copy out of the popup itself.
+    if _popup_is_shown(popup) and popup.property("active") is True:
+        popup.moveTo(*_popup_position(QCursor.pos(), popup))
+        return
     desktop.selection_capture_pending = True
     clipboard = app.clipboard()
     previous_data = None
@@ -280,7 +286,13 @@ def _quick_translate_selection(
             popup.popAt(*_popup_position(QCursor.pos(), popup))
             model.translate()
         elif attempts <= 1:
-            _finish("No text was copied. Select text in the foreground application and try again.")
+            # A pinned popup stays up while the user works elsewhere; with nothing
+            # selected, the hotkey moves it to the cursor rather than complaining.
+            if _popup_is_shown(popup):
+                _finish()
+                popup.moveTo(*_popup_position(QCursor.pos(), popup))
+            else:
+                _finish("No text was copied. Select text in the foreground application and try again.")
         else:
             QTimer.singleShot(40, lambda: _poll(attempts - 1))
 
@@ -323,6 +335,10 @@ def _capture_screenshot(
         desktop.selection_capture_pending = False
         if tray is not None:
             tray.showMessage("PyCrow Tool", "Could not capture the screen.", QSystemTrayIcon.MessageIcon.Warning, 5000)
+
+
+def _popup_is_shown(popup) -> bool:
+    return popup.property("visible") is True
 
 
 def _popup_position(cursor, popup) -> tuple[int, int]:

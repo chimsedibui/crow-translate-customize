@@ -172,3 +172,47 @@ def test_shortcut_from_worker_runs_on_gui_thread(qapp, qtbot):
     thread.join()
     qtbot.waitUntil(lambda: bool(calls))
     assert calls == [("quick-translate", qapp.thread())]
+
+
+def _shown_popup(active):
+    popup = Mock()
+    popup.property.side_effect = lambda name: {"visible": True, "active": active}[name]
+    return popup
+
+
+def test_hotkey_on_focused_popup_moves_it_without_copying(monkeypatch, qapp):
+    app, clipboard, desktop, model, _, tray, pending = _capture_setup(monkeypatch)
+    popup = _shown_popup(active=True)
+    _quick_translate_selection(app, desktop, model, popup, tray)
+    popup.moveTo.assert_called_once_with(100, 100)
+    desktop.simulate_copy.assert_not_called()
+    model.translate.assert_not_called()
+    tray.showMessage.assert_not_called()
+    assert not pending
+    assert clipboard.text() == "old clipboard"
+    assert not desktop.selection_capture_pending
+
+
+def test_hotkey_with_no_selection_moves_pinned_popup_instead_of_warning(monkeypatch, qapp):
+    app, clipboard, desktop, model, _, tray, pending = _capture_setup(monkeypatch)
+    popup = _shown_popup(active=False)
+    _quick_translate_selection(app, desktop, model, popup, tray)
+    while pending:
+        pending.pop(0)()
+    desktop.simulate_copy.assert_called_once()
+    popup.moveTo.assert_called_once_with(100, 100)
+    model.translate.assert_not_called()
+    tray.showMessage.assert_not_called()
+    assert clipboard.text() == "old clipboard"
+    assert not desktop.selection_capture_pending
+
+
+def test_hotkey_with_new_selection_still_translates_while_popup_pinned(monkeypatch, qapp):
+    app, clipboard, desktop, model, _, tray, pending = _capture_setup(monkeypatch)
+    popup = _shown_popup(active=False)
+    desktop.simulate_copy.side_effect = lambda: (clipboard.data.setText("new text"), True)[1]
+    _quick_translate_selection(app, desktop, model, popup, tray)
+    pending.pop(0)()
+    assert model.sourceText == "new text"
+    model.translate.assert_called_once()
+    popup.popAt.assert_called_once()

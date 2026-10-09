@@ -143,6 +143,23 @@ def test_ocr_error_and_popup_load(ui, qapp):
     assert not warnings
 
 
+
+def test_popup_move_hides_then_reshows_at_new_spot(ui, qapp, qtbot):
+    # A visible popup cannot just be moved: its glass backdrop must be re-grabbed
+    # while it is hidden, so moveTo hides it and pops it again a moment later.
+    window, model, settings, service, engine, warnings, qml_dir = ui
+    engine.load(QUrl.fromLocalFile(str(qml_dir / "QuickTranslatePopup.qml")))
+    popup = engine.rootObjects()[-1]
+    margin = popup.property("shadowMargin")
+    popup.popAt(100, 100)
+    qtbot.waitUntil(lambda: popup.property("visible"))
+    popup.moveTo(300, 200)
+    assert not popup.property("visible")
+    qtbot.waitUntil(lambda: popup.property("visible"))
+    assert (popup.property("x"), popup.property("y")) == (300 - margin, 200 - margin)
+    popup.close()
+    assert not warnings
+
 def test_history_filter_and_restore(ui, qapp):
     window, model, *_ = ui
     model._history.add("hello", "xin chào", "en", "vi", "fake")
