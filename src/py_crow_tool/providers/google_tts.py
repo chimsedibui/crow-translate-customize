@@ -25,7 +25,7 @@ _PREFERRED_CHIRP_VOICE = "Aoede"
 
 # Translation codes name a language; speech needs a locale. Where a language is spoken
 # in several, pick the one most readers would expect rather than the alphabetically first.
-_DEFAULT_LOCALES = {"en": "en-US", "es": "es-ES", "fr": "fr-FR", "pt": "pt-BR", "de": "de-DE", "ar": "ar-XA"}
+_DEFAULT_LOCALES = {"en": "en-US", "es": "es-ES", "fr": "fr-FR", "pt": "pt-BR", "de": "de-DE", "ar": "ar-XA", "nl": "nl-NL"}
 # Google's speech service files Mandarin under cmn, not the zh the translator uses.
 _SPEECH_LANGUAGES = {"zh": "cmn-CN", "zh-cn": "cmn-CN", "zh-tw": "cmn-TW"}
 
@@ -73,6 +73,7 @@ def choose_voice(voices: list[dict], locale: str, voice_type: str) -> tuple[str,
 class GoogleTtsProvider(HttpProvider):
     display_name = "Google Cloud Text-to-Speech"
     endpoint = "https://texttospeech.googleapis.com/v1"
+    detect_endpoint = "https://translation.googleapis.com/language/translate/v2/detect"
 
     def __init__(self, api_key: str = "", *, client: httpx.AsyncClient | None = None):
         super().__init__(client=client)
@@ -91,17 +92,29 @@ class GoogleTtsProvider(HttpProvider):
                 raise TranslationException(TranslationError.PARSING, "Unexpected Google Text-to-Speech voice list") from error
         return self._voices[locale]
 
+    async def _detect(self, text: str) -> str:
+        response = await self._request("POST", self.detect_endpoint, params={"key": self.api_key}, json={"q": text})
+        self._raise_for_response(response)
+        try:
+            language = response.json()["data"]["detections"][0][0]["language"]
+        except (KeyError, IndexError, TypeError, ValueError) as error:
+            raise TranslationException(TranslationError.PARSING, "Unexpected Google language detection response") from error
+        if not language or language == "und":
+            raise TranslationException(TranslationError.INVALID_REQUEST, "Could not tell which language this text is in")
+        return language
+
     async def synthesize(self, text: str, language: str, voice_type: str = "chirp-hd", *, request_id: str = "") -> bytes:
         """MP3 audio of text read in language."""
         if not self.api_key:
             raise TranslationException(TranslationError.CONFIGURATION, "Add a Google Cloud API key in Settings to read text aloud")
-        if not language or language == "auto":
-            raise TranslationException(TranslationError.INVALID_REQUEST, "The language is not known yet. Translate the text first, then read it aloud")
         if len(text.encode("utf-8")) > MAX_TEXT_BYTES:
             raise TranslationException(TranslationError.INVALID_REQUEST, "This text is too long to read aloud in one go")
 
         async def operation() -> bytes:
-            locale = speech_locale(language)
+            # "Auto-detect" with nothing translated yet: ask the translator what the
+            # text is, with the same key, rather than refusing to read it.
+            spoken = language if language and language != "auto" else await self._detect(text)
+            locale = speech_locale(spoken)
             language_code, name = choose_voice(await self._voices_for(locale), locale, voice_type)
             voice = {"languageCode": language_code}
             if name:

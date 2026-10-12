@@ -23,6 +23,7 @@ def test_speech_locale_maps_translation_codes():
     assert speech_locale("en-GB") == "en-GB"
     assert speech_locale("zh-CN") == "cmn-CN"
     assert speech_locale("zh-TW") == "cmn-TW"
+    assert speech_locale("nl") == "nl-NL"
 
 
 def test_choose_voice_prefers_the_requested_quality():
@@ -70,6 +71,39 @@ async def test_synthesize_picks_a_voice_and_decodes_audio():
     await provider.close()
 
 
+@pytest.mark.parametrize("language", ["auto", ""])
+async def test_synthesize_detects_an_unknown_language_first(language):
+    calls = []
+
+    async def handler(request: httpx.Request):
+        calls.append(request)
+        if request.url.path.endswith("/detect"):
+            return httpx.Response(200, json={"data": {"detections": [[{"language": "vi", "confidence": 1}]]}})
+        if request.url.path.endswith("/voices"):
+            return httpx.Response(200, json={"voices": VI_VOICES})
+        return httpx.Response(200, json={"audioContent": base64.b64encode(b"mp3").decode()})
+
+    provider = _provider(handler)
+    assert await provider.synthesize("Xin chào", language) == b"mp3"
+    assert calls[0].url.host == "translation.googleapis.com"
+    assert json.loads(calls[0].content) == {"q": "Xin chào"}
+    assert calls[1].url.params["languageCode"] == "vi"
+    assert json.loads(calls[2].content)["voice"]["languageCode"] == "vi-VN"
+    await provider.close()
+
+
+async def test_synthesize_reports_undetectable_text():
+    async def handler(request: httpx.Request):
+        assert request.url.path.endswith("/detect"), "nothing is synthesized for an unknown language"
+        return httpx.Response(200, json={"data": {"detections": [[{"language": "und", "confidence": 0}]]}})
+
+    provider = _provider(handler)
+    with pytest.raises(TranslationException) as error:
+        await provider.synthesize("123", "auto")
+    assert error.value.kind == TranslationError.INVALID_REQUEST
+    await provider.close()
+
+
 async def test_synthesize_reports_a_disabled_api():
     async def handler(request: httpx.Request):
         return httpx.Response(403, json={"error": {"message": "Cloud Text-to-Speech API has not been used in project 1"}})
@@ -84,8 +118,6 @@ async def test_synthesize_reports_a_disabled_api():
 
 @pytest.mark.parametrize("key, text, language, kind", [
     ("", "Xin chào", "vi", TranslationError.CONFIGURATION),
-    ("key", "Xin chào", "auto", TranslationError.INVALID_REQUEST),
-    ("key", "Xin chào", "", TranslationError.INVALID_REQUEST),
     ("key", "â" * 3000, "vi", TranslationError.INVALID_REQUEST),
 ])
 async def test_synthesize_refuses_what_it_cannot_send(key, text, language, kind):
