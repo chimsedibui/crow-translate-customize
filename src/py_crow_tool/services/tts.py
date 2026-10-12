@@ -8,7 +8,7 @@ from PySide6.QtCore import Property, QBuffer, QByteArray, QIODevice, QObject, Qt
 from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 from py_crow_tool.config import AppSettings
-from py_crow_tool.core.models import TranslationError, TranslationException
+from py_crow_tool.core.models import TranslationException
 from py_crow_tool.providers.google_tts import GoogleTtsProvider
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 
@@ -28,7 +28,7 @@ class TtsService(QObject):
     # Results arrive on the async loop's thread; these hop them to the GUI thread,
     # which is the only place the media player may be touched.
     _audioReady = Signal(str, object, object)
-    _requestFailed = Signal(str, str)
+    _requestFailed = Signal(str, object, str)
 
     # Enough for "play that again" and flipping between the two panes, without
     # holding on to audio for every sentence of a long session.
@@ -47,6 +47,10 @@ class TtsService(QObject):
         self._provider = provider or GoogleTtsProvider()
         self._cache: OrderedDict[tuple[str, str, str], bytes] = OrderedDict()
         self._pending: str | None = None
+        # Requests still waiting on Google, by what they will say. Clicking the button
+        # again for the same sentence joins the request already on its way instead of
+        # queueing a second one behind it.
+        self._inflight: dict[tuple[str, str, str], str] = {}
         self._pending_origin = ""
         self._loading = False
         self._playing = False
@@ -83,8 +87,13 @@ class TtsService(QObject):
             self._cache.move_to_end(key)
             self._play(self._cache[key])
             return
+        if key in self._inflight:
+            self._pending = self._inflight[key]
+            self._set_state(loading=True)
+            return
         request_id = uuid.uuid4().hex
         self._pending = request_id
+        self._inflight[key] = request_id
         self._set_state(loading=True)
         # Read at call time, so a key or voice changed in Settings applies to the
         # very next sentence.
@@ -94,8 +103,7 @@ class TtsService(QObject):
             try:
                 audio = await self._provider.synthesize(text, language, self._settings.tts_voice, request_id=request_id)
             except TranslationException as error:
-                if error.kind != TranslationError.CANCELLED:
-                    self._requestFailed.emit(request_id, str(error))
+                self._requestFailed.emit(request_id, key, str(error))
                 return
             self._audioReady.emit(request_id, key, audio)
 
@@ -105,6 +113,7 @@ class TtsService(QObject):
             asyncio.run(_operation())
 
     def _on_audio_ready(self, request_id: str, key, audio: bytes) -> None:
+        self._inflight.pop(key, None)
         self._cache[key] = audio
         while len(self._cache) > self.CACHE_SIZE:
             self._cache.popitem(last=False)
@@ -116,7 +125,8 @@ class TtsService(QObject):
         self._play(audio)
         self._set_state(loading=False)
 
-    def _on_request_failed(self, request_id: str, message: str) -> None:
+    def _on_request_failed(self, request_id: str, key, message: str) -> None:
+        self._inflight.pop(key, None)
         if request_id != self._pending:
             return
         self._pending = None
@@ -156,15 +166,10 @@ class TtsService(QObject):
 
     @Slot()
     def stop(self) -> None:
-        if self._pending is not None:
-            request_id, self._pending = self._pending, None
-            # The request's task lives on the async loop, and asyncio tasks may only be
-            # cancelled from their own loop's thread.
-            if self._loop_runner is not None:
-                async def _cancel() -> None:
-                    self._provider.cancel(request_id)
-
-                self._loop_runner.submit(_cancel())
+        # Only the listening stops. A request already sent is left to finish and land
+        # in the cache: cancelling it threw the audio away, so stop-then-play again
+        # sent the same sentence to Google once more on every click.
+        self._pending = None
         self._set_state(loading=False)
         if self._player is not None:
             self._player.stop()

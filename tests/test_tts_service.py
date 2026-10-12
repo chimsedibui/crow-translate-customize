@@ -78,6 +78,37 @@ def test_failure_is_reported_to_the_window_that_asked(monkeypatch, qapp, qtbot):
     assert not service.speaking
 
 
+def test_rapid_clicks_share_one_request(monkeypatch, qapp, qtbot):
+    import asyncio
+
+    from py_crow_tool.services.async_runner import AsyncLoopRunner
+
+    class _SlowProvider(_FakeProvider):
+        async def synthesize(self, *args, **kwargs):
+            await asyncio.sleep(0.3)
+            return await super().synthesize(*args, **kwargs)
+
+    runner = AsyncLoopRunner()
+    provider = _SlowProvider()
+    service = TtsService(AppSettings(), runner, provider=provider)
+    played = []
+    monkeypatch.setattr(service, "_play", played.append)
+    try:
+        # Read, stop, read, stop, read -- all before Google has answered once.
+        for _ in range(3):
+            service.speak("Xin chào", "vi")
+            service.stop()
+        service.speak("Xin chào", "vi")
+        qtbot.waitUntil(lambda: played == [b"mp3"])
+        assert len(provider.calls) == 1
+        # And the audio it fetched is now cached for the next click.
+        service.speak("Xin chào", "vi")
+        assert played == [b"mp3", b"mp3"]
+        assert len(provider.calls) == 1
+    finally:
+        runner.stop()
+
+
 def test_blank_text_does_nothing(monkeypatch, qapp):
     provider = _FakeProvider()
     service, played = _service(monkeypatch, provider)
