@@ -11,6 +11,7 @@ from py_crow_tool.config import AppSettings, SettingsStore
 from py_crow_tool.core.languages import LANGUAGES
 from py_crow_tool.core.models import TranslationException, TranslationRequest
 from py_crow_tool.core.refine_models import DEFAULT_REFINE_TONE, REFINE_TONES, RefineRequest
+from py_crow_tool.providers.google_tts import VOICE_TYPES
 from py_crow_tool.providers.manager import ProviderManager
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 from py_crow_tool.services.history import HistoryStore
@@ -690,6 +691,25 @@ class SettingsViewModel(QObject):
         return [
             {"code": "openai", "name": "OpenAI Vision"},
             {"code": "azure-openai", "name": "Azure OpenAI Vision"},
+        ]
+
+    @Property(str, notify=settingsChanged)
+    def ttsVoice(self): return self.settings.tts_voice
+
+    @ttsVoice.setter
+    def ttsVoice(self, value):
+        value = value if value in VOICE_TYPES else "chirp-hd"
+        if value != self.settings.tts_voice:
+            self.settings.tts_voice = value
+            self.settingsChanged.emit()
+
+    @Property("QVariantList", constant=True)
+    def ttsVoices(self):
+        return [
+            {"code": "chirp-hd", "name": "Chirp HD (most natural)"},
+            {"code": "neural2", "name": "Neural2"},
+            {"code": "wavenet", "name": "WaveNet"},
+            {"code": "standard", "name": "Standard (most robotic)"},
         ]
 
     @Property(int, notify=settingsChanged)

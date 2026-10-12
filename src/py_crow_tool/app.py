@@ -101,7 +101,7 @@ def main() -> int:
     loop_runner = AsyncLoopRunner()
     translation_vm = TranslationViewModel(manager, settings, store, history, loop_runner)
     settings_vm = SettingsViewModel(settings, store, loop_runner)
-    tts = TtsService()
+    tts = TtsService(settings, loop_runner)
     ocr = OcrService(settings, loop_runner)
     refine_service = RefineService(settings)
     refine_vm = RefineViewModel(refine_service, settings, store, loop_runner)
@@ -137,6 +137,7 @@ def main() -> int:
     quick_engine.addImageProvider("backdrop", backdrop_image_provider)
     quick_engine.rootContext().setContextProperty("backdropController", backdrop_controller)
     quick_engine.rootContext().setContextProperty("quickTranslateModel", quick_vm)
+    quick_engine.rootContext().setContextProperty("ttsService", tts)
     quick_engine.rootContext().setContextProperty("systemReduceMotion", reduce_motion)
     quick_qml = files("py_crow_tool") / "qml" / "QuickTranslatePopup.qml"
     quick_engine.load(QUrl.fromLocalFile(str(quick_qml)))
@@ -244,6 +245,10 @@ def main() -> int:
             pass
         try:
             loop_runner.run_sync(ocr.close(), timeout=3)
+        except Exception:
+            pass
+        try:
+            loop_runner.run_sync(tts.close(), timeout=3)
         except Exception:
             pass
         try:

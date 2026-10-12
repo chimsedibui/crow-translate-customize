@@ -50,6 +50,7 @@ ApplicationWindow {
         function onTargetLanguageChanged() { root.schedule() }
     }
     Connections { target: ocrService; function onFailed(message) { translationModel.reportError(message) } }
+    Connections { target: ttsService; function onFailed(message, origin) { if (origin === "main") translationModel.reportError(message) } }
 
     component LanguagePicker: ComboBox {
         Layout.fillWidth: true
@@ -250,7 +251,7 @@ ApplicationWindow {
                                 Layout.fillWidth: true; spacing: 2
                                 ActionButton { text: "Paste"; symbol: "paste"; onClicked: translationModel.pasteSource() }
                                 ActionButton { symbol: "scan"; ToolTip.text: "Read text from clipboard image"; onClicked: ocrService.recognizeClipboardImage() }
-                                ActionButton { symbol: "speaker"; ToolTip.text: ttsService.speaking ? "Stop speaking" : "Read source aloud"; enabled: translationModel.sourceText.length > 0; onClicked: ttsService.speaking ? ttsService.stop() : ttsService.speak(translationModel.sourceText, translationModel.detectedSourceLanguage || translationModel.sourceLanguage) }
+                                ActionButton { symbol: "speaker"; ToolTip.text: ttsService.speaking ? "Stop speaking" : "Read source aloud"; enabled: translationModel.sourceText.length > 0; onClicked: ttsService.speaking ? ttsService.stop() : ttsService.speak(translationModel.sourceText, translationModel.detectedSourceLanguage || translationModel.sourceLanguage, "main") }
                                 ActionButton { symbol: "copy"; ToolTip.text: "Copy source"; enabled: translationModel.sourceText.length > 0; onClicked: { translationModel.copySource(); flash(); root.copied() } }
                                 Item { Layout.fillWidth: true }
                                 Caption { text: translationModel.sourceText.length + " chars"; font.family: Theme.monoFamily }
@@ -323,7 +324,7 @@ ApplicationWindow {
                             }
                             RowLayout {
                                 Layout.fillWidth: true
-                                ActionButton { symbol: "speaker"; ToolTip.text: ttsService.speaking ? "Stop speaking" : "Read translation aloud"; enabled: translationModel.translatedText.length > 0; onClicked: ttsService.speaking ? ttsService.stop() : ttsService.speak(translationModel.translatedText, translationModel.targetLanguage) }
+                                ActionButton { symbol: "speaker"; ToolTip.text: ttsService.speaking ? "Stop speaking" : "Read translation aloud"; enabled: translationModel.translatedText.length > 0; onClicked: ttsService.speaking ? ttsService.stop() : ttsService.speak(translationModel.translatedText, translationModel.targetLanguage, "main") }
                                 Item { Layout.fillWidth: true }
                                 ActionButton { text: "Copy translation"; symbol: "copy"; enabled: translationModel.translatedText.length > 0; onClicked: { translationModel.copyTranslated(); flash(); root.copied() } }
                             }
@@ -478,6 +479,7 @@ ApplicationWindow {
             ocrEngine.currentIndex = Math.max(0, settingsModel.ocrEngines.findIndex(item => item.code === settingsModel.ocrEngine))
             ocrLanguage.currentIndex = translationModel.languages.findIndex(item => item.code === settingsModel.ocrLanguage)
             resizeResolution.value = settingsModel.ocrResizeResolution
+            ttsVoice.currentIndex = Math.max(0, settingsModel.ttsVoices.findIndex(item => item.code === settingsModel.ttsVoice))
             screenshotHotkey.sequence = settingsModel.screenshotHotkey; screenshotHotkey.error = ""
         }
         onAboutToHide: { hotkey.recording = false; screenshotHotkey.recording = false }
@@ -494,6 +496,7 @@ ApplicationWindow {
             settingsModel.ocrLanguage = ocrLanguage.currentValue
             settingsModel.ocrResizeResolution = resizeResolution.value
             settingsModel.screenshotHotkey = screenshotHotkey.sequence
+            settingsModel.ttsVoice = ttsVoice.currentValue
             settingsModel.save(); translationModel.savePreferences()
         }
         ScrollView {
@@ -505,6 +508,10 @@ ApplicationWindow {
                 Label { text: "Google Cloud API key" }
                 SettingsField { id: apiKey; objectName: "apiKey"; Layout.fillWidth: true; placeholderText: "Enter your API key"; echoMode: showKey.checked ? TextInput.Normal : TextInput.Password; Accessible.name: "Google Cloud API key" }
                 CheckBox { id: showKey; text: "Show key"; checked: false }
+                Label { text: "Read-aloud voice" }
+                LanguagePicker { id: ttsVoice; objectName: "ttsVoice"; model: settingsModel.ttsVoices; Accessible.name: "Read-aloud voice" }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: Theme.sizeCaption
+                    text: "Read-aloud uses Google Cloud Text-to-Speech with the same key. Turn on the Text-to-Speech API in that Google Cloud project. Languages without the chosen voice use the best one they have." }
 
                 Label { text: "Refine"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted

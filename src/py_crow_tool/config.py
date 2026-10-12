@@ -73,6 +73,9 @@ class AppSettings:
     theme: str = "system"
     # The Refine tab's tone preset; see core.refine_models.REFINE_TONES.
     refine_tone: str = "friendly"
+    # Read-aloud voice quality; see providers.google_tts.VOICE_TYPES. Chirp HD is the
+    # one that sounds like a person, which is the whole point of reading aloud.
+    tts_voice: str = "chirp-hd"
     google_v2: GoogleV2Settings = field(default_factory=GoogleV2Settings)
     openai: OpenAiSettings = field(default_factory=OpenAiSettings)
     azure_openai: AzureOpenAiSettings = field(default_factory=AzureOpenAiSettings)
@@ -142,6 +145,7 @@ class SettingsStore:
             preferred_provider=str(data.get("preferred_provider", "")),
             refine_tone=str(data.get("refine_tone", "friendly")),
             theme=str(data.get("theme", "system")),
+            tts_voice=str(data.get("tts_voice", "chirp-hd")),
             google_v2=GoogleV2Settings(**data.get("google_v2", {})),
             openai=OpenAiSettings(**data.get("openai", {})),
             azure_openai=AzureOpenAiSettings(**data.get("azure_openai", {})),

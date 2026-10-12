@@ -33,6 +33,18 @@ Window {
         return code
     }
     Timer { id: copyTimer; interval: 2000; onTriggered: popup.notice = "" }
+    // Read-aloud failures get their own line rather than the translation's error: the
+    // translation is fine, and its Retry would translate again instead of speaking.
+    property string speechError: ""
+    Timer { id: speechErrorTimer; interval: 5000; onTriggered: popup.speechError = "" }
+    Connections {
+        target: ttsService
+        function onFailed(message, origin) {
+            if (origin !== "popup") return
+            popup.speechError = message
+            speechErrorTimer.restart()
+        }
+    }
 
     // A line of coloured text with an opaque surface under it. The Label takes an
     // explicit width rather than anchoring to both edges: wrapping decides the
@@ -197,6 +209,16 @@ Window {
                     elide: Text.ElideRight
                 }
                 ActionButton { onGlass: glass.supported; symbol: "pin"; primary: popup.pinned; ToolTip.text: popup.pinned ? "Unpin popup" : "Keep popup open"; onClicked: popup.pinned = !popup.pinned }
+                ActionButton {
+                    onGlass: glass.supported; symbol: "speaker"; primary: ttsService.speaking
+                    enabled: ttsService.speaking || quickTranslateModel.translatedText.length > 0
+                    ToolTip.text: ttsService.speaking ? "Stop reading" : "Read translation aloud"
+                    onClicked: {
+                        popup.speechError = ""
+                        if (ttsService.speaking) ttsService.stop()
+                        else ttsService.speak(quickTranslateModel.translatedText, quickTranslateModel.targetLanguage, "popup")
+                    }
+                }
                 ActionButton { onGlass: glass.supported; symbol: "copy"; enabled: quickTranslateModel.translatedText.length > 0; ToolTip.text: "Copy translation"; onClicked: { quickTranslateModel.copyTranslated(); flash(); popup.notice = "Copied to clipboard"; copyTimer.restart() } }
                 ActionButton { onGlass: glass.supported; symbol: "close"; ToolTip.text: "Close popup"; onClicked: popup.close() }
             }
@@ -220,6 +242,14 @@ Window {
                 Layout.fillWidth: true
                 visible: quickTranslateModel.error.length > 0
                 text: quickTranslateModel.error
+                maxLines: 3
+                fill: glass.supported ? Theme.dangerSoft : "transparent"
+                ink: Theme.danger
+            }
+            SemanticChip {
+                Layout.fillWidth: true
+                visible: popup.speechError.length > 0
+                text: popup.speechError
                 maxLines: 3
                 fill: glass.supported ? Theme.dangerSoft : "transparent"
                 ink: Theme.danger
