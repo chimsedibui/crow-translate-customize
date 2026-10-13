@@ -3,7 +3,9 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 $Venv = Join-Path $ProjectRoot ".venv"
 
 if (-not (Test-Path $Venv)) {
-    py -3.11 -m venv $Venv
+    # The py launcher picks 3.11 on a desktop with several Pythons; a CI machine set
+    # up by actions/setup-python may not have the launcher, only that one python.
+    if (Get-Command py -ErrorAction SilentlyContinue) { py -3.11 -m venv $Venv } else { python -m venv $Venv }
     if ($LASTEXITCODE -ne 0) { throw "Virtual environment creation failed." }
 }
 

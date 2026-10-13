@@ -1,0 +1,29 @@
+# CI: run the test suite on every push to dev/python and on every pull request,
+# so a broken change shows up as a red cross on GitHub instead of in the app.
+name: Tests
+
+on:
+  push:
+    branches: [dev/python]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    env:
+      # GitHub's machines have no screen; Qt draws windows off-screen instead.
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      - name: Install the app and its test tools
+        run: python -m pip install -e ".[windows,test]"
+
+      - name: Run the tests
+        run: python -m pytest

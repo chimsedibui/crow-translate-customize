@@ -19,6 +19,10 @@ class FakeProvider:
 
     async def translate(self, request):
         self.calls += 1
+        # A real request takes a while. Answering instantly let the loop thread
+        # finish before the test could look, so "busy while in flight" and "a second
+        # call while busy is ignored" failed now and then.
+        await asyncio.sleep(0.05)
         return TranslationResult(f"{request.text}-translated", "en", request.target_language, self.id)
 
     async def detect_language(self, text):

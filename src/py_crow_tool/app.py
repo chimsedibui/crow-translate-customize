@@ -14,6 +14,7 @@ from py_crow_tool.bootstrap import build_services
 from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, RefineService, SingleInstance, TtsService
 from py_crow_tool.services.backdrop import BackdropController, BackdropImageProvider
 from py_crow_tool.services.capture import CaptureController, ScreenshotImageProvider
+from py_crow_tool.services.updater import UpdateService, remove_old_downloads
 from py_crow_tool.viewmodels import RefineViewModel, SettingsViewModel, TranslationViewModel, apply_theme
 
 
@@ -102,6 +103,7 @@ def main() -> int:
     translation_vm = TranslationViewModel(manager, settings, store, history, loop_runner)
     settings_vm = SettingsViewModel(settings, store, loop_runner)
     tts = TtsService(settings, loop_runner)
+    updater = UpdateService(loop_runner)
     ocr = OcrService(settings, loop_runner)
     refine_service = RefineService(settings)
     refine_vm = RefineViewModel(refine_service, settings, store, loop_runner)
@@ -116,6 +118,7 @@ def main() -> int:
     context.setContextProperty("ttsService", tts)
     context.setContextProperty("ocrService", ocr)
     context.setContextProperty("refineModel", refine_vm)
+    context.setContextProperty("updateService", updater)
     context.setContextProperty("systemReduceMotion", reduce_motion)
     qml_main = files("py_crow_tool") / "qml" / "Main.qml"
     engine.load(QUrl.fromLocalFile(str(qml_main)))
@@ -184,15 +187,34 @@ def main() -> int:
     show_action.triggered.connect(lambda: (window.show(), window.raise_(), window.requestActivate()))
     translate_clipboard = QAction("Translate clipboard", menu)
     translate_clipboard.triggered.connect(lambda: _translate_clipboard(app, translation_vm, window))
+    update_action = QAction("Check for updates", menu)
+    update_action.triggered.connect(lambda: (show_action.trigger(), updater.checkForUpdates()))
     quit_action = QAction("Quit", menu)
     quit_action.triggered.connect(app.quit)
     menu.addAction(show_action)
     menu.addAction(translate_clipboard)
+    menu.addAction(update_action)
     menu.addSeparator()
     menu.addAction(quit_action)
     tray.setContextMenu(menu)
     tray.activated.connect(lambda reason: show_action.trigger() if reason == QSystemTrayIcon.ActivationReason.Trigger else None)
     tray.show()
+
+    # The app lives in the tray for days, so it checks at startup and then daily.
+    # Both are silent: only a newer release is worth interrupting anyone for.
+    remove_old_downloads()
+    updater.quitRequested.connect(app.quit)
+    updater.updateFound.connect(
+        lambda version: tray.showMessage(
+            "PyCrow Tool", f"PyCrow {version} is available. Open PyCrow to update.", QSystemTrayIcon.MessageIcon.Information, 8000
+        )
+    )
+    tray.messageClicked.connect(show_action.trigger)
+    QTimer.singleShot(5000, lambda: updater.checkForUpdates(True))
+    daily_update_check = QTimer(app)
+    daily_update_check.setInterval(24 * 60 * 60 * 1000)
+    daily_update_check.timeout.connect(lambda: updater.checkForUpdates(True))
+    daily_update_check.start()
 
     clipboard_hotkey_ok = desktop.register_shortcut(settings.clipboard_hotkey, "translate-clipboard")
     quick_hotkey_ok = desktop.register_shortcut(settings.quick_translate_hotkey, "quick-translate")
@@ -253,6 +275,10 @@ def main() -> int:
             pass
         try:
             loop_runner.run_sync(refine_service.close(), timeout=3)
+        except Exception:
+            pass
+        try:
+            loop_runner.run_sync(updater.close(), timeout=3)
         except Exception:
             pass
         loop_runner.stop()

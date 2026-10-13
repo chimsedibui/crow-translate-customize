@@ -15,6 +15,7 @@ from py_crow_tool.services.history import HistoryStore
 from py_crow_tool.services.refine import RefineService
 from py_crow_tool.services.refine_history import RefineHistoryStore
 from py_crow_tool.services.tts import TtsService
+from py_crow_tool.services.updater import UpdateService
 from py_crow_tool.viewmodels import RefineViewModel, TranslationViewModel, SettingsViewModel
 
 
@@ -41,10 +42,12 @@ def ui(qapp, tmp_path):
     # The real service: it only reaches the network or the audio device when asked to
     # speak, and the QML depends on its signal signatures, which a stub could get wrong.
     tts = TtsService(settings)
+    # Real as well, and for the same reason: it only goes online when asked to check.
+    updater = UpdateService()
     engine = QQmlApplicationEngine()
     warnings = []
     engine.warnings.connect(lambda errors: warnings.extend(error.toString() for error in errors))
-    for name, obj in [("translationModel", model), ("quickTranslateModel", model), ("settingsModel", settings_model), ("ttsService", tts), ("ocrService", service), ("refineModel", refine_model)]:
+    for name, obj in [("translationModel", model), ("quickTranslateModel", model), ("settingsModel", settings_model), ("ttsService", tts), ("ocrService", service), ("refineModel", refine_model), ("updateService", updater)]:
         engine.rootContext().setContextProperty(name, obj)
     qml_dir = Path(__file__).parents[1] / "src/py_crow_tool/qml"
     engine.load(QUrl.fromLocalFile(str(qml_dir / "Main.qml")))

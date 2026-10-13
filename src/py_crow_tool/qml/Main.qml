@@ -136,6 +136,44 @@ ApplicationWindow {
             }
             ActionButton { text: "Settings"; symbol: "settings"; onClicked: settingsDialog.open() }
         }
+        // Above both tabs: an update is about the app, not about either page. It stays
+        // up through the download and install, so the progress has somewhere to show,
+        // and through a failed install, so "Update now" can be tried again.
+        Rectangle {
+            id: updateBanner
+            objectName: "updateBanner"
+            readonly property string updateState: updateService.state
+            visible: updateService.latestVersion.length > 0 && ["available", "downloading", "installing", "error"].indexOf(updateState) >= 0
+            Layout.fillWidth: true; implicitHeight: updateColumn.implicitHeight + 24
+            color: updateState === "error" ? Theme.dangerSoft : Theme.accentSoft; radius: Theme.radiusSmall
+            ColumnLayout {
+                id: updateColumn; anchors.fill: parent; anchors.margins: 12; spacing: 8
+                RowLayout {
+                    Layout.fillWidth: true
+                    Label {
+                        Layout.fillWidth: true; wrapMode: Text.Wrap
+                        text: updateService.message
+                        color: updateBanner.updateState === "error" ? Theme.danger : Theme.accentSoftInk
+                    }
+                    ActionButton {
+                        visible: updateService.state === "available" || updateService.state === "error"
+                        text: updateService.canInstall ? "Update now" : "Download"
+                        primary: true
+                        onClicked: updateService.canInstall ? updateService.installUpdate() : Qt.openUrlExternally(updateService.releaseUrl)
+                    }
+                    ActionButton {
+                        visible: updateService.state === "available"
+                        text: "What's new"
+                        onClicked: Qt.openUrlExternally(updateService.releaseUrl)
+                    }
+                }
+                ProgressBar {
+                    Layout.fillWidth: true
+                    visible: updateService.state === "downloading"
+                    value: updateService.progress
+                }
+            }
+        }
         // Each tab is a whole page rather than a mode flag on one: Refine has no
         // language pickers and Translate has no tone, so sharing a layout would leave
         // half the controls disabled on either side.
@@ -529,6 +567,34 @@ ApplicationWindow {
                     Accessible.name: "Appearance"
                 }
                 CheckBox { id: startup; objectName: "startup"; text: "Start with system" }
+
+                // Acts at once rather than on Save: checking is a question, not a setting.
+                Label { text: "Updates"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
+                Label { objectName: "currentVersion"; text: "PyCrow " + updateService.currentVersion }
+                RowLayout {
+                    Layout.fillWidth: true; spacing: 8
+                    ActionButton {
+                        objectName: "checkForUpdates"
+                        text: updateService.state === "checking" ? "Checking…" : "Check for updates"
+                        enabled: ["checking", "downloading", "installing"].indexOf(updateService.state) < 0
+                        onClicked: updateService.checkForUpdates()
+                    }
+                    ActionButton {
+                        visible: updateService.state === "available"
+                        text: updateService.canInstall ? "Update to " + updateService.latestVersion : "Download " + updateService.latestVersion
+                        primary: true
+                        onClicked: updateService.canInstall ? updateService.installUpdate() : Qt.openUrlExternally(updateService.releaseUrl)
+                    }
+                }
+                Label {
+                    objectName: "updateStatus"
+                    Layout.fillWidth: true; wrapMode: Text.Wrap
+                    visible: text.length > 0
+                    text: updateService.message
+                    color: updateService.state === "error" ? Theme.danger : Theme.muted
+                }
+                Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted; font.pixelSize: Theme.sizeCaption
+                    text: "PyCrow also checks once at startup and once a day, and only speaks up when there is a new version." }
 
                 Label { text: "OCR"; font.pixelSize: Theme.sizeControl; font.weight: Theme.weightBold; Layout.topMargin: 8 }
                 Label { Layout.fillWidth: true; wrapMode: Text.Wrap; color: Theme.muted

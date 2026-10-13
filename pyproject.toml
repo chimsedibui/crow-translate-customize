@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "py-crow-tool"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Native PySide 6 translation desktop application"
 requires-python = ">=3.11"
 license = { text = "GPL-3.0-or-later" }
@@ -26,6 +26,9 @@ py-crow = "py_crow_tool.cli:main"
 py-crow-gui = "py_crow_tool.app:main"
 
 [project.entry-points."py_crow_tool.providers"]
+
+[tool.hatch.version]
+path = "src/py_crow_tool/__init__.py"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/py_crow_tool"]

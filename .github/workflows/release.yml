@@ -1,0 +1,68 @@
+# CD: publish a release when a version tag is pushed.
+#
+#   git tag v1.2.0
+#   git push origin v1.2.0
+#
+# GitHub then tests the tagged commit, builds the installer stamped with 1.2.0, and
+# publishes it as a release with its checksum. Installed copies of PyCrow find it
+# on their next update check.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write  # needed to create the release
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.ref_name }}
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: pyproject.toml
+
+      # The tag is the version: v1.2.0 becomes 1.2.0 in the app, the installer and
+      # the release. Anything not shaped like vX.Y.Z stops here, because the app's
+      # update check could not compare it.
+      - name: Take the version from the tag
+        shell: pwsh
+        run: |
+          if ($env:TAG -notmatch '^v(\d+\.\d+\.\d+)$') { throw "Tag '$env:TAG' is not a version tag like v1.2.0." }
+          $version = $Matches[1]
+          $init = "src/py_crow_tool/__init__.py"
+          (Get-Content $init) -replace '^__version__ = ".*"$', "__version__ = `"$version`"" | Set-Content $init -Encoding utf8
+          Select-String -Path $init -Pattern '^__version__'
+          "VERSION=$version" >> $env:GITHUB_ENV
+
+      - name: Install the app and its test tools
+        run: python -m pip install -e ".[windows,test]"
+
+      - name: Run the tests
+        run: python -m pytest
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Build the installer
+        shell: pwsh
+        run: ./scripts/build-installer.ps1
+
+      - name: Publish the release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: >
+          gh release create $env:TAG
+          installer/Output/PyCrowTool-Setup.exe
+          installer/Output/PyCrowTool-Setup.exe.sha256
+          --title "PyCrow $env:VERSION"
+          --generate-notes

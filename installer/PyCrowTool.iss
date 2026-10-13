@@ -3,7 +3,12 @@
 ; with ISCC.exe, or just run scripts\build-installer.ps1 which does both.
 
 #define MyAppName "PyCrow Tool"
-#define MyAppVersion "0.1.0"
+; The version comes from src/py_crow_tool/__init__.py, passed in by
+; scripts\build-installer.ps1 as /DMyAppVersion=...; compiling this script on its
+; own falls back to 0.0.0 rather than to a stale hard-coded number.
+#ifndef MyAppVersion
+  #define MyAppVersion "0.0.0"
+#endif
 #define MyAppPublisher "CrowTranslate"
 #define MyAppExeName "PyCrowTool.exe"
 
@@ -47,6 +52,15 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: nowait postinstall skipifsilent
+; An in-app update runs this installer silently, which skips the entry above, and
+; passes /RELAUNCH=1 so the app the user was just using comes back on its own.
+Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: ShouldRelaunch
+
+[Code]
+function ShouldRelaunch: Boolean;
+begin
+  Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+end;
 
 [UninstallRun]
 ; Belt-and-braces: make sure the tray process is gone before its files are
