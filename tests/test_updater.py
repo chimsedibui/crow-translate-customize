@@ -151,6 +151,20 @@ def test_handover_starts_powershell_with_a_console_then_quits(qapp, monkeypatch,
     assert (tmp_path / "update.ps1").exists()
     assert quits == [True]
     assert service.state == "installing"
+    assert kwargs["env"]["PYINSTALLER_RESET_ENVIRONMENT"] == "1"
+
+
+def test_handover_environment_forgets_the_old_app_s_unpack_folder():
+    # Inherited, these sent the relaunched app looking for Python in the folder the
+    # old app had already deleted: "Failed to load Python DLL" after updating to 1.0.3.
+    environment = updater_module.handover_environment({
+        "PATH": "C:/Windows",
+        "_PYI_APPLICATION_HOME_DIR": "C:/Temp/_MEI123",
+        "_PYI_ARCHIVE_FILE": "C:/Apps/PyCrowTool.exe",
+        "_PYI_PARENT_PROCESS_LEVEL": "1",
+        "_MEIPASS2": "C:/Temp/_MEI123",
+    })
+    assert environment == {"PATH": "C:/Windows", "PYINSTALLER_RESET_ENVIRONMENT": "1"}
 
 
 def test_handover_falls_back_when_the_job_forbids_breakaway(qapp, monkeypatch, tmp_path):

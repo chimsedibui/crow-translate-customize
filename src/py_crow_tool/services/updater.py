@@ -93,6 +93,21 @@ def _describe(error: Exception) -> str:
     return str(error).splitlines()[0] if str(error) else type(error).__name__
 
 
+def handover_environment(environ) -> dict[str, str]:
+    """The environment for the PowerShell -> installer -> relaunched app chain.
+
+    PyInstaller marks the app's own process with _PYI_* variables pointing at the
+    folder it unpacked into. Inherited down the chain, they make the relaunched
+    app believe it is that process's child and load Python from that folder --
+    which the old app deleted on exit, so the new one died with "Failed to load
+    Python DLL". PYINSTALLER_RESET_ENVIRONMENT is PyInstaller's switch for a
+    process that is starting the app afresh; the variables are dropped as well.
+    """
+    clean = {key: value for key, value in environ.items() if not key.upper().startswith(("_PYI_", "_MEIPASS"))}
+    clean["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+    return clean
+
+
 def can_self_install() -> bool:
     """Only the installed, frozen app can replace itself. Run from source there is
     no installed copy to update -- the checkout is updated with git instead."""
@@ -306,11 +321,12 @@ class UpdateService(QObject):
         # asked for in case one would take PowerShell down with the app; where the
         # job forbids it, the plain launch is the fallback.
         flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
+        environment = handover_environment(os.environ)
         try:
             try:
-                subprocess.Popen(command, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB, close_fds=True)
+                subprocess.Popen(command, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB, close_fds=True, env=environment)
             except PermissionError:
-                subprocess.Popen(command, creationflags=flags, close_fds=True)
+                subprocess.Popen(command, creationflags=flags, close_fds=True, env=environment)
         except OSError as error:
             self._set("error", f"The installer could not be started: {error}")
             return
