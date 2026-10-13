@@ -294,16 +294,23 @@ class UpdateService(QObject):
         self._set("installing", "Installing the update. PyCrow will restart by itself.")
         script = Path(installer).with_name("update.ps1")
         script.write_text(_UPDATE_SCRIPT, encoding="utf-8")
+        command = [
+            "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
+            "-File", str(script),
+            "-AppPid", str(os.getpid()), "-LauncherPid", str(os.getppid()), "-Installer", installer,
+        ]
+        # CREATE_NO_WINDOW, not DETACHED_PROCESS: PowerShell given no console at all
+        # exits before running a line, which is how the first release's updates died
+        # silently after closing the app. A hidden console keeps it alive, and it
+        # outlives the app either way. Breaking away from the app's job object is
+        # asked for in case one would take PowerShell down with the app; where the
+        # job forbids it, the plain launch is the fallback.
+        flags = subprocess.CREATE_NO_WINDOW | subprocess.CREATE_NEW_PROCESS_GROUP
         try:
-            subprocess.Popen(
-                [
-                    "powershell", "-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden",
-                    "-File", str(script),
-                    "-AppPid", str(os.getpid()), "-LauncherPid", str(os.getppid()), "-Installer", installer,
-                ],
-                creationflags=subprocess.DETACHED_PROCESS | subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW,
-                close_fds=True,
-            )
+            try:
+                subprocess.Popen(command, creationflags=flags | subprocess.CREATE_BREAKAWAY_FROM_JOB, close_fds=True)
+            except PermissionError:
+                subprocess.Popen(command, creationflags=flags, close_fds=True)
         except OSError as error:
             self._set("error", f"The installer could not be started: {error}")
             return

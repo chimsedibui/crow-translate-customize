@@ -130,6 +130,46 @@ def test_install_refuses_outside_the_installed_app(qapp, qtbot, monkeypatch):
     assert service.state == "error"
 
 
+def test_handover_starts_powershell_with_a_console_then_quits(qapp, monkeypatch, tmp_path):
+    import subprocess
+
+    launches = []
+    monkeypatch.setattr(updater_module.subprocess, "Popen", lambda command, **kwargs: launches.append((command, kwargs)))
+    service = UpdateService()
+    quits = []
+    service.quitRequested.connect(lambda: quits.append(True))
+    installer = tmp_path / INSTALLER_ASSET
+    installer.write_bytes(b"")
+    service._on_downloaded(str(installer))
+
+    command, kwargs = launches[0]
+    assert command[0] == "powershell" and str(installer) in command
+    # Without a console PowerShell exits before running the script, and the app
+    # would quit into nothing -- what happened to 1.0.0 and 1.0.2.
+    assert not kwargs["creationflags"] & subprocess.DETACHED_PROCESS
+    assert kwargs["creationflags"] & subprocess.CREATE_NO_WINDOW
+    assert (tmp_path / "update.ps1").exists()
+    assert quits == [True]
+    assert service.state == "installing"
+
+
+def test_handover_falls_back_when_the_job_forbids_breakaway(qapp, monkeypatch, tmp_path):
+    import subprocess
+
+    launches = []
+
+    def popen(command, **kwargs):
+        if kwargs["creationflags"] & subprocess.CREATE_BREAKAWAY_FROM_JOB:
+            raise PermissionError("access denied")
+        launches.append(kwargs)
+
+    monkeypatch.setattr(updater_module.subprocess, "Popen", popen)
+    service = UpdateService()
+    service._on_downloaded(str(tmp_path / INSTALLER_ASSET))
+    assert len(launches) == 1
+    assert service.state == "installing"
+
+
 def _downloads(installer: bytes, checksum: str):
     def handler(request: httpx.Request):
         if request.url.path.endswith(CHECKSUM_ASSET):
