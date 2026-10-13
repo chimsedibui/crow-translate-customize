@@ -19,7 +19,13 @@ from py_crow_tool.services.async_runner import AsyncLoopRunner
 # Releases are published here by .github/workflows/release.yml when a v* tag is
 # pushed. The repository is public, so checking needs no token.
 REPOSITORY = "chimsedibui/crow-translate-customize"
-LATEST_RELEASE_URL = f"https://api.github.com/repos/{REPOSITORY}/releases/latest"
+# The release page, not the REST API. The API allows 60 unauthenticated requests an
+# hour per IP address, and an office shares one address between everyone in it: the
+# limit ran out during testing. This page answers with a redirect to the latest
+# release's tag (or to the bare release list when there is none), which is all the
+# check needs, and the download links follow from the tag.
+LATEST_RELEASE_URL = f"https://github.com/{REPOSITORY}/releases/latest"
+_RELEASES_URL = f"https://github.com/{REPOSITORY}/releases"
 INSTALLER_ASSET = "PyCrowTool-Setup.exe"
 CHECKSUM_ASSET = INSTALLER_ASSET + ".sha256"
 _TEMP_PREFIX = "pycrow-update-"
@@ -59,16 +65,32 @@ class Release:
     page_url: str
 
 
-def parse_release(data: dict) -> Release | None:
-    """The release's version and download links, or None for a release this app
-    cannot install itself from (a malformed tag, or a missing installer or checksum)."""
-    version = str(data.get("tag_name", "")).strip().removeprefix("v")
-    if parse_version(version) is None or data.get("draft") or data.get("prerelease"):
+def release_from_redirect(location: str) -> Release | None:
+    """The release the latest-release page redirected to, or None when it points
+    anywhere but a version tag -- no release yet, or a tag that is not vX.Y.Z.
+
+    GitHub never sends drafts or pre-releases here. Whether the installer and its
+    checksum were actually attached shows up as a failed download, not here.
+    """
+    prefix = _RELEASES_URL + "/tag/"
+    if not location.startswith(prefix):
         return None
-    assets = {asset.get("name"): asset.get("browser_download_url") for asset in data.get("assets", [])}
-    if not assets.get(INSTALLER_ASSET) or not assets.get(CHECKSUM_ASSET):
+    tag = location[len(prefix):].strip("/")
+    version = tag.removeprefix("v")
+    if parse_version(version) is None:
         return None
-    return Release(version, assets[INSTALLER_ASSET], assets[CHECKSUM_ASSET], str(data.get("html_url", "")))
+    download = f"{_RELEASES_URL}/download/{tag}/"
+    return Release(version, download + INSTALLER_ASSET, download + CHECKSUM_ASSET, location)
+
+
+def _describe(error: Exception) -> str:
+    """One short line for the UI. httpx's own messages run to several lines and
+    end with a link to MDN, which is not something to put in a settings dialog."""
+    if isinstance(error, httpx.HTTPStatusError):
+        return f"GitHub answered {error.response.status_code}"
+    if isinstance(error, (httpx.ConnectError, httpx.TimeoutException)):
+        return "GitHub could not be reached. Check the internet connection"
+    return str(error).splitlines()[0] if str(error) else type(error).__name__
 
 
 def can_self_install() -> bool:
@@ -179,14 +201,13 @@ class UpdateService(QObject):
 
         async def _operation() -> None:
             try:
-                response = await self._http().get(LATEST_RELEASE_URL, headers={"Accept": "application/vnd.github+json"})
-                if response.status_code == 404:
-                    self._checked.emit(None, silent)  # no release published yet
-                    return
-                response.raise_for_status()
-                self._checked.emit(parse_release(response.json()), silent)
-            except (httpx.HTTPError, ValueError) as error:
-                self._checkFailed.emit(f"Could not check for updates: {error}", silent)
+                # Not followed: the redirect target is the answer.
+                response = await self._http().get(LATEST_RELEASE_URL, follow_redirects=False)
+                if not response.is_redirect:
+                    raise httpx.HTTPStatusError(f"GitHub answered {response.status_code}", request=response.request, response=response)
+                self._checked.emit(release_from_redirect(response.headers.get("Location", "")), silent)
+            except httpx.HTTPError as error:
+                self._checkFailed.emit(f"Could not check for updates: {_describe(error)}", silent)
 
         self._submit(_operation())
 
@@ -225,7 +246,7 @@ class UpdateService(QObject):
                 path = await self._download(release, folder)
             except (httpx.HTTPError, OSError, ValueError) as error:
                 shutil.rmtree(folder, ignore_errors=True)
-                self._downloadFailed.emit(f"The update could not be downloaded: {error}")
+                self._downloadFailed.emit(f"The update could not be downloaded: {_describe(error)}")
                 return
             self._downloaded.emit(str(path))
 
