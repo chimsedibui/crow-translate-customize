@@ -57,9 +57,18 @@ Filename: "{app}\{#MyAppExeName}"; Description: "Launch {#MyAppName}"; Flags: no
 Filename: "{app}\{#MyAppExeName}"; Flags: nowait; Check: ShouldRelaunch
 
 [Code]
+function SetEnvironmentVariable(Name, Value: String): Boolean;
+  external 'SetEnvironmentVariableW@kernel32.dll stdcall';
+
 function ShouldRelaunch: Boolean;
 begin
   Result := ExpandConstant('{param:RELAUNCH|0}') = '1';
+  // The app that started this update passed down its PyInstaller variables, and
+  // the relaunched app would take them as its own and fail to load Python from
+  // the folder the old app deleted. Apps up to 1.0.3 do not clear them, so the
+  // installer -- always the new version -- tells the relaunch to start afresh.
+  if Result then
+    SetEnvironmentVariable('PYINSTALLER_RESET_ENVIRONMENT', '1');
 end;
 
 [UninstallRun]
