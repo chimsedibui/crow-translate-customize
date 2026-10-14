@@ -45,8 +45,24 @@ class CaptureController(QObject):
         super().__init__(parent)
         self._image_provider = image_provider
         self._pixmaps: dict[int, QPixmap] = {}
-        self._screens: list[dict] = []
+        # Seeded from the current layout so the overlay windows are built at startup,
+        # not on the first hotkey press -- creating a Window per monitor is the slow
+        # part of putting the overlay up.
+        self._screens: list[dict] = [
+            self._screen_entry(index, screen) for index, screen in enumerate(QGuiApplication.screens())
+        ]
         self._generation = 0
+
+    @staticmethod
+    def _screen_entry(index: int, screen) -> dict:
+        geometry = screen.geometry()
+        return {
+            "index": index,
+            "x": geometry.x(),
+            "y": geometry.y(),
+            "width": geometry.width(),
+            "height": geometry.height(),
+        }
 
     @Property(int, notify=generationChanged)
     def generation(self) -> int:
@@ -70,22 +86,19 @@ class CaptureController(QObject):
             if pixmap.isNull():
                 continue
             pixmaps[index] = pixmap
-            geometry = screen.geometry()
-            screens.append({
-                "index": index,
-                "x": geometry.x(),
-                "y": geometry.y(),
-                "width": geometry.width(),
-                "height": geometry.height(),
-            })
+            screens.append(self._screen_entry(index, screen))
         if not pixmaps:
             return False
         self._pixmaps = pixmaps
-        self._screens = screens
         self._image_provider.set_images({index: pixmap.toImage() for index, pixmap in pixmaps.items()})
         self._generation += 1
         self.generationChanged.emit()
-        self.screensChanged.emit()
+        # Every screensChanged makes CaptureOverlay.qml's Instantiator destroy and rebuild
+        # every overlay window, which is what made each hotkey press stall. Only a real
+        # layout change (monitor plugged in, resolution changed) is worth that.
+        if screens != self._screens:
+            self._screens = screens
+            self.screensChanged.emit()
         self.captureRequested.emit()
         return True
 

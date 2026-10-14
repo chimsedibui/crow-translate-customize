@@ -347,3 +347,30 @@ def test_quick_translate_keeps_its_own_target_whatever_the_main_window_last_used
         assert main.targetLanguage == "ja"
     finally:
         _stop_runner(runner)
+
+
+def test_stage_walks_reading_then_translating_then_idle(qapp, tmp_path):
+    # The popup says which wait it is on; the screenshot flow must go straight from
+    # reading to translating without dropping to idle in between.
+    runner = AsyncLoopRunner()
+    try:
+        vm, history = _make_vm(qapp, tmp_path, runner)
+        vm.sourceText = "old"
+        vm.translate()
+        _wait_for_translate(qapp, vm, history)
+        stages = []
+        vm.stageChanged.connect(lambda: stages.append(vm.stage))
+
+        vm.beginImageRead()
+        assert vm.stage == "reading"
+        assert vm.translatedText == ""  # the previous result does not linger during OCR
+
+        vm.sourceText = "hello"
+        vm.translate()
+        vm.endImageRead()
+        assert vm.stage == "translating"
+        assert _pump_until(qapp, lambda: vm.stage == "")
+        assert "" not in stages[:stages.index("translating")]
+        assert _pump_until(qapp, lambda: len(vm.history) == 2)
+    finally:
+        _stop_runner(runner)

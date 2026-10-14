@@ -156,9 +156,12 @@ def main() -> int:
     capture_engine.load(QUrl.fromLocalFile(str(capture_qml)))
     capture_root = capture_engine.rootObjects()[0] if capture_engine.rootObjects() else None
 
+    # Screenshot flow: hotkey -> grab every screen -> overlay -> drag-select ->
+    # crop -> OCR (network) -> translate (network) -> result. The popup comes up as
+    # soon as the region is chosen and shows which of the two waits it is on.
     def _on_region_captured(data: bytes) -> None:
         desktop.selection_capture_pending = False
-        quick_vm.sourceText = ""
+        quick_vm.beginImageRead()
         quick_popup.popAt(*_popup_position(QCursor.pos(), quick_popup))
         ocr.recognizeImageBytes(data)
 
@@ -167,16 +170,24 @@ def main() -> int:
 
     def _on_region_recognized(text: str) -> None:
         if not text.strip():
+            quick_vm.endImageRead()
             quick_vm.reportError("No text found in the selected area")
             return
         quick_vm.sourceText = text
+        # Start translating before leaving the reading stage, so the popup goes
+        # straight from step 1 to step 2 instead of flashing idle in between.
         quick_vm.translate()
+        quick_vm.endImageRead()
+
+    def _on_region_failed(message: str) -> None:
+        quick_vm.endImageRead()
+        quick_vm.reportError(message)
 
     if quick_popup is not None and capture_root is not None:
         capture_controller.regionCaptured.connect(_on_region_captured)
         capture_controller.cancelled.connect(_on_region_cancelled)
         ocr.regionRecognized.connect(_on_region_recognized)
-        ocr.regionFailed.connect(lambda message: quick_vm.reportError(message))
+        ocr.regionFailed.connect(_on_region_failed)
 
     desktop.set_startup_enabled(settings.start_with_system)
 

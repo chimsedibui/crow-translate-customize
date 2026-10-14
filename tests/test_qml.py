@@ -397,3 +397,20 @@ def test_theme_toggle_pins_the_scheme_not_on_screen(ui, qapp):
     assert settings.theme == ("light" if on_screen_dark else "dark")
     settings.theme = "neon"
     assert settings.settings.theme == "system"
+
+
+def test_popup_names_the_stage_it_is_waiting_on(ui, qapp):
+    window, model, settings, service, engine, warnings, qml_dir = ui
+    engine.load(QUrl.fromLocalFile(str(qml_dir / "QuickTranslatePopup.qml")))
+    popup = engine.rootObjects()[-1]
+    progress = popup.findChild(QObject, "popupProgress")
+    assert not progress.property("visible")
+
+    model.beginImageRead()
+    qapp.processEvents()
+    assert popup.property("stageText").startswith("Step 1 of 2")
+
+    model.endImageRead()
+    qapp.processEvents()
+    assert popup.property("stageText") == ""
+    assert not warnings

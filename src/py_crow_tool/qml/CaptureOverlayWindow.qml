@@ -90,10 +90,12 @@ Window {
         }
     }
 
+    // hide(), not close(): close() tears down the native window and its swapchain, and
+    // rebuilding them is what made the next hotkey press stall before the overlay showed.
     Connections {
         target: captureController
         function onCaptureRequested() { overlay.show(); overlay.requestActivate() }
-        function onCancelled() { overlay.close() }
-        function onRegionCaptured() { overlay.close() }
+        function onCancelled() { overlay.hide() }
+        function onRegionCaptured() { overlay.hide() }
     }
 }

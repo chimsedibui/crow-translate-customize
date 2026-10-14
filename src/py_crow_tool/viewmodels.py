@@ -25,6 +25,7 @@ class TranslationViewModel(QObject):
     sourceLanguageChanged = Signal()
     targetLanguageChanged = Signal()
     busyChanged = Signal()
+    stageChanged = Signal()
     statusChanged = Signal()
     historyChanged = Signal()
     detectedSourceLanguageChanged = Signal()
@@ -58,6 +59,7 @@ class TranslationViewModel(QObject):
         self._source_language = "auto" if quick else settings.source_language
         self._target_language = settings.quick_translate_target if quick else settings.target_language
         self._busy = False
+        self._reading_image = False
         self._revision = 0
         self._pending = False
         self._error = ""
@@ -112,6 +114,16 @@ class TranslationViewModel(QObject):
     @Property(bool, notify=busyChanged)
     def busy(self): return self._busy
 
+    @Property(str, notify=stageChanged)
+    def stage(self):
+        # What the popup is waiting on, so it can say so instead of sitting there
+        # looking frozen: "reading" while a screenshot is being OCR'd, "translating"
+        # while the translation is in flight, "" when idle. OCR is a separate service,
+        # so without this the popup had nothing to show for the first (longer) wait.
+        if self._reading_image:
+            return "reading"
+        return "translating" if self._busy else ""
+
     @Property(str, notify=statusChanged)
     def status(self): return self._status
 
@@ -133,6 +145,20 @@ class TranslationViewModel(QObject):
     def reportError(self, message):
         self._error = message
         self.errorChanged.emit()
+
+    def beginImageRead(self):
+        """A screenshot region is on its way to OCR: drop whatever the popup showed
+        last time so a stale translation does not sit there for the whole wait."""
+        self.clearAll()
+        self._set_reading_image(True)
+
+    def endImageRead(self):
+        self._set_reading_image(False)
+
+    def _set_reading_image(self, value):
+        if value != self._reading_image:
+            self._reading_image = value
+            self.stageChanged.emit()
 
     def _input_changed(self):
         self._revision += 1
@@ -276,6 +302,7 @@ class TranslationViewModel(QObject):
     def _set_busy(self, value):
         self._busy = value
         self.busyChanged.emit()
+        self.stageChanged.emit()
 
     def _set_status(self, value):
         self._status = value

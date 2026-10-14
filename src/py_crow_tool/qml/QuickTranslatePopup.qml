@@ -25,6 +25,28 @@ Window {
     color: "transparent"
     visible: false
 
+    // Progress for the stage label: whether this request started from a screenshot
+    // (so translation is step 2 of 2), and how long the current wait has run.
+    property bool imageFlow: false
+    property int waitSeconds: 0
+    readonly property string stageText: {
+        const stage = quickTranslateModel.stage
+        if (stage === "reading") return "Step 1 of 2 · Reading text from image…"
+        if (stage === "translating") return popup.imageFlow ? "Step 2 of 2 · Translating…" : "Translating…"
+        return ""
+    }
+    Connections {
+        target: quickTranslateModel
+        function onStageChanged() {
+            const stage = quickTranslateModel.stage
+            if (stage === "reading") popup.imageFlow = true
+            else if (stage === "") popup.imageFlow = false
+            if (stage !== "" && !waitTimer.running) { popup.waitSeconds = 0; waitTimer.start() }
+            else if (stage === "") waitTimer.stop()
+        }
+    }
+    Timer { id: waitTimer; interval: 1000; repeat: true; onTriggered: popup.waitSeconds += 1 }
+
     property bool closeArmed: false
     property bool pinned: false
     property string notice: ""
@@ -259,19 +281,62 @@ Window {
                 Layout.fillWidth: true
                 Layout.fillHeight: true
 
-                // Two bars, not three: the popup shows a sentence, not a paragraph.
-                SkeletonLines {
-                    id: popupSkeleton
+                // Which wait this is. A screenshot goes through two network calls --
+                // OCR, then translation -- and the first is the long one; a popup that
+                // sits there with no word on what it is doing reads as a hang.
+                Column {
+                    id: popupProgress
+                    objectName: "popupProgress"
                     width: parent.width
                     y: 4
-                    widths: [1.0, 0.72]
-                    visible: quickTranslateModel.busy
+                    spacing: 10
+                    visible: quickTranslateModel.stage !== ""
+
+                    RowLayout {
+                        width: parent.width
+                        spacing: 8
+
+                        Rectangle {
+                            id: progressDot
+                            width: 8; height: 8; radius: 4
+                            color: Theme.accent
+                            SequentialAnimation on opacity {
+                                running: popupProgress.visible && !Theme.reduceMotion
+                                loops: Animation.Infinite
+                                NumberAnimation { from: 1; to: 0.25; duration: 600; easing.type: Easing.InOutSine }
+                                NumberAnimation { from: 0.25; to: 1; duration: 600; easing.type: Easing.InOutSine }
+                            }
+                        }
+                        Label {
+                            objectName: "popupStageLabel"
+                            Layout.fillWidth: true
+                            text: popup.stageText
+                            color: glass.supported ? Theme.ink : Theme.muted
+                            font.pixelSize: Theme.sizeCaption
+                            elide: Text.ElideRight
+                        }
+                        Label {
+                            // Only once the wait is long enough to wonder about.
+                            visible: popup.waitSeconds >= 2
+                            text: popup.waitSeconds + "s"
+                            color: glass.supported ? Theme.ink : Theme.muted
+                            font.pixelSize: Theme.sizeCaption
+                        }
+                    }
+
+                    // Two bars, not three: the popup shows a sentence, not a paragraph.
+                    SkeletonLines {
+                        id: popupSkeleton
+                        width: parent.width
+                        widths: [1.0, 0.72]
+                        visible: popupProgress.visible
+                    }
                 }
 
                 ScrollView {
                     anchors.fill: parent
                     clip: true
-                    visible: !popupSkeleton.visible
+                    visible: !popupProgress.visible
                     TextArea {
                         id: popupTranslation
                         readOnly: true
