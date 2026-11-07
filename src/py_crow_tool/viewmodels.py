@@ -524,7 +524,7 @@ def apply_theme(mode: str) -> None:
 
     Set on QStyleHints rather than in Theme.qml so that one switch reaches everything:
     Theme.dark is bound to styleHints.colorScheme, the FluentWinUI3 controls read the
-    same hint, and the quick-translate popup and capture overlay -- separate engines --
+    same hint, and the quick-translate popup and capture overlay -- separate windows --
     follow it without being told.
     """
     from PySide6.QtGui import QGuiApplication

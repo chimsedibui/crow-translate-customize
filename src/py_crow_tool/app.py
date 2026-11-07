@@ -13,6 +13,7 @@ from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon
 from py_crow_tool.bootstrap import build_services
 from py_crow_tool.services import AsyncLoopRunner, DesktopServices, HistoryStore, OcrService, RefineService, SingleInstance, TtsService
 from py_crow_tool.services.backdrop import BackdropController, BackdropImageProvider
+from py_crow_tool.services.desktop import START_MINIMIZED_FLAG
 from py_crow_tool.services.capture import CaptureController, ScreenshotImageProvider
 from py_crow_tool.services.updater import UpdateService, remove_old_downloads
 from py_crow_tool.viewmodels import RefineViewModel, SettingsViewModel, TranslationViewModel, apply_theme
@@ -111,6 +112,10 @@ def main() -> int:
 
     reduce_motion = _system_reduce_motion()
 
+    # One engine for all three windows. Each QQmlApplicationEngine compiles and keeps
+    # its own copy of every QML type it touches -- Qt Quick Controls, the FluentWinUI3
+    # style, Theme -- so the popup and the capture overlay used to cost ~25 MB each
+    # just for duplicating what the main window had already loaded.
     engine = QQmlApplicationEngine()
     context = engine.rootContext()
     context.setContextProperty("translationModel", translation_vm)
@@ -120,41 +125,48 @@ def main() -> int:
     context.setContextProperty("refineModel", refine_vm)
     context.setContextProperty("updateService", updater)
     context.setContextProperty("systemReduceMotion", reduce_motion)
-    qml_main = files("py_crow_tool") / "qml" / "Main.qml"
-    engine.load(QUrl.fromLocalFile(str(qml_main)))
-    if not engine.rootObjects():
-        sys.stderr.write(f"Failed to load QML from {qml_main}\n")
-        return 1
-    window = engine.rootObjects()[0]
-
-    ocr.recognized.connect(lambda text: setattr(translation_vm, "sourceText", text))
-    instance.activated.connect(lambda: (window.show(), window.raise_(), window.requestActivate()))
 
     quick_vm = TranslationViewModel(manager, settings, store, history, loop_runner, quick=True)
-    quick_engine = QQmlApplicationEngine()
     # The popup is glass, and glass needs to know what is behind it. Nothing can
     # read the pixels under a window that is already up, so the controller grabs
     # the desktop the instant before the popup shows. See services/backdrop.py.
     backdrop_image_provider = BackdropImageProvider()
     backdrop_controller = BackdropController(backdrop_image_provider)
-    quick_engine.addImageProvider("backdrop", backdrop_image_provider)
-    quick_engine.rootContext().setContextProperty("backdropController", backdrop_controller)
-    quick_engine.rootContext().setContextProperty("quickTranslateModel", quick_vm)
-    quick_engine.rootContext().setContextProperty("ttsService", tts)
-    quick_engine.rootContext().setContextProperty("systemReduceMotion", reduce_motion)
-    quick_qml = files("py_crow_tool") / "qml" / "QuickTranslatePopup.qml"
-    quick_engine.load(QUrl.fromLocalFile(str(quick_qml)))
-    quick_popup = quick_engine.rootObjects()[0] if quick_engine.rootObjects() else None
+    engine.addImageProvider("backdrop", backdrop_image_provider)
+    context.setContextProperty("backdropController", backdrop_controller)
+    context.setContextProperty("quickTranslateModel", quick_vm)
 
     screenshot_image_provider = ScreenshotImageProvider()
     capture_controller = CaptureController(screenshot_image_provider)
-    capture_engine = QQmlApplicationEngine()
-    capture_engine.addImageProvider("capture", screenshot_image_provider)
-    capture_engine.rootContext().setContextProperty("captureController", capture_controller)
-    capture_engine.rootContext().setContextProperty("systemReduceMotion", reduce_motion)
-    capture_qml = files("py_crow_tool") / "qml" / "CaptureOverlay.qml"
-    capture_engine.load(QUrl.fromLocalFile(str(capture_qml)))
-    capture_root = capture_engine.rootObjects()[0] if capture_engine.rootObjects() else None
+    engine.addImageProvider("capture", screenshot_image_provider)
+    context.setContextProperty("captureController", capture_controller)
+
+    qml_dir = files("py_crow_tool") / "qml"
+
+    def _load(name: str):
+        before = len(engine.rootObjects())
+        engine.load(QUrl.fromLocalFile(str(qml_dir / name)))
+        roots = engine.rootObjects()
+        return roots[-1] if len(roots) > before else None
+
+    qml_main = qml_dir / "Main.qml"
+    # Launched at login: stay in the tray. Set as an initial property, so the window is
+    # never shown at all -- showing and then hiding it would still build the GPU device.
+    # The first popup or "Show" from the tray brings everything up as usual.
+    start_hidden = START_MINIMIZED_FLAG in sys.argv[1:]
+    if start_hidden:
+        engine.setInitialProperties({"visible": False})
+    window = _load("Main.qml")
+    engine.setInitialProperties({})
+    if window is None:
+        sys.stderr.write(f"Failed to load QML from {qml_main}\n")
+        return 1
+
+    ocr.recognized.connect(lambda text: setattr(translation_vm, "sourceText", text))
+    instance.activated.connect(lambda: (window.show(), window.raise_(), window.requestActivate()))
+
+    quick_popup = _load("QuickTranslatePopup.qml")
+    capture_root = _load("CaptureOverlay.qml")
 
     # Screenshot flow: hotkey -> grab every screen -> overlay -> drag-select ->
     # crop -> OCR (network) -> translate (network) -> result. The popup comes up as

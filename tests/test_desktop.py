@@ -121,3 +121,12 @@ def test_single_instance_falls_back_to_primary_with_a_warning_when_locking_fails
 
     assert instance.is_primary is True
     assert "multiple instances" in capsys.readouterr().err
+
+
+def test_login_entry_starts_the_app_in_the_tray(monkeypatch):
+    from py_crow_tool.services import desktop
+
+    monkeypatch.setattr(desktop.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(desktop.sys, "executable", r"C:\Apps\PyCrow Tool\PyCrowTool.exe")
+
+    assert desktop.startup_command() == r'"C:\Apps\PyCrow Tool\PyCrowTool.exe" --minimized'

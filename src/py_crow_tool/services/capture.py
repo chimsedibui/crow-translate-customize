@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QBuffer, QIODevice, QObject, QRect, Signal, Slot
-from PySide6.QtGui import QGuiApplication, QImage, QPixmap
+from PySide6.QtGui import QGuiApplication, QImage
 from PySide6.QtQuick import QQuickImageProvider
 
 
@@ -16,6 +16,9 @@ class ScreenshotImageProvider(QQuickImageProvider):
 
     def set_images(self, images: dict[int, QImage]) -> None:
         self._images = images
+
+    def clear(self) -> None:
+        self._images = {}
 
     def requestImage(self, id, size, requestedSize):  # noqa: A002 - Qt's parameter name
         try:
@@ -44,7 +47,11 @@ class CaptureController(QObject):
     def __init__(self, image_provider: ScreenshotImageProvider, parent: QObject | None = None):
         super().__init__(parent)
         self._image_provider = image_provider
-        self._pixmaps: dict[int, QPixmap] = {}
+        # One full-resolution grab per monitor -- tens of MB on a 1440p + 1080p desk.
+        # They are only needed while the overlay is up, so release() drops them as
+        # soon as the user confirms or cancels; holding on to them between hotkey
+        # presses is what made every screenshot cost RAM that never came back.
+        self._images: dict[int, QImage] = {}
         # Seeded from the current layout so the overlay windows are built at startup,
         # not on the first hotkey press -- creating a Window per monitor is the slow
         # part of putting the overlay up.
@@ -79,18 +86,21 @@ class CaptureController(QObject):
         return self._screens
 
     def capture_all_screens(self) -> bool:
-        pixmaps: dict[int, QPixmap] = {}
+        images: dict[int, QImage] = {}
         screens: list[dict] = []
         for index, screen in enumerate(QGuiApplication.screens()):
-            pixmap = screen.grabWindow(0)
-            if pixmap.isNull():
+            # Kept as a QImage only: the provider serves the same (implicitly shared)
+            # image to QML and confirmRegion crops from it, so there is one copy of
+            # each screen in memory instead of a QPixmap plus a converted QImage.
+            image = screen.grabWindow(0).toImage()
+            if image.isNull():
                 continue
-            pixmaps[index] = pixmap
+            images[index] = image
             screens.append(self._screen_entry(index, screen))
-        if not pixmaps:
+        if not images:
             return False
-        self._pixmaps = pixmaps
-        self._image_provider.set_images({index: pixmap.toImage() for index, pixmap in pixmaps.items()})
+        self._images = images
+        self._image_provider.set_images(images)
         self._generation += 1
         self.generationChanged.emit()
         # Every screensChanged makes CaptureOverlay.qml's Instantiator destroy and rebuild
@@ -102,22 +112,30 @@ class CaptureController(QObject):
         self.captureRequested.emit()
         return True
 
+    def release(self) -> None:
+        """Drop the screen grabs once the overlay is gone; the next hotkey press grabs anew."""
+        self._images = {}
+        self._image_provider.clear()
+
     @Slot(int, int, int, int, int)
     def confirmRegion(self, screen_index: int, x: int, y: int, width: int, height: int) -> None:
-        pixmap = self._pixmaps.get(screen_index)
-        if pixmap is None or width <= 0 or height <= 0:
-            self.cancelled.emit()
+        image = self._images.get(screen_index)
+        if image is None or width <= 0 or height <= 0:
+            self.cancel()
             return
-        rect = QRect(x, y, width, height).intersected(pixmap.rect())
+        rect = QRect(x, y, width, height).intersected(image.rect())
         if rect.width() <= 0 or rect.height() <= 0:
-            self.cancelled.emit()
+            self.cancel()
             return
-        cropped = pixmap.copy(rect)
+        cropped = image.copy(rect)
         buffer = QBuffer()
         buffer.open(QIODevice.OpenModeFlag.WriteOnly)
         cropped.save(buffer, "PNG")
+        del cropped
+        self.release()
         self.regionCaptured.emit(bytes(buffer.data()))
 
     @Slot()
     def cancel(self) -> None:
+        self.release()
         self.cancelled.emit()

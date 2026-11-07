@@ -5,6 +5,7 @@ from typing import Any
 
 import httpx
 
+from py_crow_tool.providers.http_client import new_async_client
 from py_crow_tool.core.ocr_models import OcrError, OcrException
 
 
@@ -14,7 +15,7 @@ class HttpOcrProvider:
 
     def __init__(self, *, client: httpx.AsyncClient | None = None, timeout: float = 30.0):
         self._owns_client = client is None
-        self._client = client or httpx.AsyncClient(timeout=timeout)
+        self._client = client or new_async_client(timeout=timeout)
         self._tasks: dict[str, list[asyncio.Task[Any]]] = {}
 
     async def close(self) -> None:

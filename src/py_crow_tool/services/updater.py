@@ -13,6 +13,7 @@ from pathlib import Path
 import httpx
 from PySide6.QtCore import Property, QObject, Qt, Signal, Slot
 
+from py_crow_tool.providers.http_client import new_async_client
 from py_crow_tool import __version__
 from py_crow_tool.services.async_runner import AsyncLoopRunner
 
@@ -199,7 +200,7 @@ class UpdateService(QObject):
         # Created on the async loop, where it is used: an httpx client belongs to
         # the loop that first opens a connection with it.
         if self._client is None:
-            self._client = httpx.AsyncClient(timeout=30, follow_redirects=True, headers={"User-Agent": f"PyCrowTool/{__version__}"})
+            self._client = new_async_client(timeout=30, follow_redirects=True, headers={"User-Agent": f"PyCrowTool/{__version__}"})
         return self._client
 
     # -- checking -----------------------------------------------------------------

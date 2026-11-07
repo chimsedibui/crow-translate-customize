@@ -38,7 +38,9 @@ Window {
         id: background
         objectName: "captureBackground"
         anchors.fill: parent
-        source: "image://capture/" + overlay.screenIndex + "/" + captureController.generation
+        // Only while shown: a hidden overlay that still pointed at the last grab would
+        // keep a full-screen image and its texture alive until the next hotkey press.
+        source: overlay.visible ? "image://capture/" + overlay.screenIndex + "/" + captureController.generation : ""
         cache: false
         asynchronous: false
         fillMode: Image.Stretch

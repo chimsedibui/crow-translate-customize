@@ -12,6 +12,19 @@ from PySide6.QtGui import QKeySequence
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 
 
+# Passed by the login entry: start in the tray instead of opening the main window.
+START_MINIMIZED_FLAG = "--minimized"
+
+
+def startup_command() -> str:
+    """What Windows runs at login. It carries START_MINIMIZED_FLAG because nobody asked
+    for a window at login: the app only has to be ready behind its hotkeys, and drawing
+    the main window would bring up the GPU device (~80 MB) before anything needs it."""
+    if getattr(sys, "frozen", False):
+        return f'"{sys.executable}" {START_MINIMIZED_FLAG}'
+    return f'"{sys.executable}" -m py_crow_tool.app {START_MINIMIZED_FLAG}'
+
+
 class SingleInstance(QObject):
     activated = Signal()
 
@@ -105,11 +118,7 @@ class DesktopServices(QObject):
         key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"
         with winreg.OpenKey(winreg.HKEY_CURRENT_USER, key_path, 0, winreg.KEY_SET_VALUE) as key:
             if enabled:
-                if getattr(sys, "frozen", False):
-                    command = f'"{sys.executable}"'
-                else:
-                    command = f'"{sys.executable}" -m py_crow_tool.app'
-                winreg.SetValueEx(key, "PyCrowTool", 0, winreg.REG_SZ, command)
+                winreg.SetValueEx(key, "PyCrowTool", 0, winreg.REG_SZ, startup_command())
             else:
                 try:
                     winreg.DeleteValue(key, "PyCrowTool")
